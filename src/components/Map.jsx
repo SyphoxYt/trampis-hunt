@@ -308,8 +308,8 @@ export default function TacticalMap({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[350px] select-none overflow-hidden bg-slate-900">
-      <div ref={mapContainerRef} className="w-full h-full min-h-[350px] z-0" />
+    <div className="relative w-full h-full min-h-[220px] select-none overflow-hidden bg-slate-900">
+      <div ref={mapContainerRef} className="w-full h-full min-h-[220px] z-0" />
 
       {/* Floating Map Controls (Top Right) */}
       <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-2">

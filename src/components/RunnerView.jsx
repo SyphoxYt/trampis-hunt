@@ -228,8 +228,8 @@ export default function RunnerView({
       </div>
 
       {/* Bottom Vertical Tactical Drawer (Built for Mobile) */}
-      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between pb-1">
+      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5 max-h-[50vh] touch-scroll overflow-y-auto flex-shrink-0">
+        <div className="flex items-center justify-between pb-1 flex-shrink-0">
           <div className="text-[11px] font-mono uppercase font-black text-slate-400 tracking-wider">
             Runner Tactical Gear
           </div>
@@ -243,7 +243,7 @@ export default function RunnerView({
         </div>
 
         {drawerOpen && (
-          <div className="flex flex-col gap-2 animate-fadeIn">
+          <div className="flex flex-col gap-2 animate-fadeIn pb-2">
             {/* Decoy Pin Full-Width Card */}
             <button
               onClick={handleDecoyClick}

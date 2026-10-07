@@ -90,7 +90,7 @@ export default function Lobby({
   };
 
   return (
-    <div className="w-full max-w-xl mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-20 select-none animate-fadeIn">
+    <div className="w-full flex-1 touch-scroll overflow-y-auto max-w-xl mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-24 select-none animate-fadeIn">
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <button

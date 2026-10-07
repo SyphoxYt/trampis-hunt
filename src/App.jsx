@@ -327,9 +327,9 @@ export default function App() {
   };
 
   return (
-    <div className={`h-full w-full overflow-hidden flex flex-col ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans antialiased`}>
+    <div className={`min-h-full w-full flex-1 flex flex-col ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans antialiased`}>
       {/* Universal Tactical Header Bar */}
-      <header className="h-14 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-40">
+      <header className="h-14 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 sticky top-0 z-40">
         <div className="flex items-center gap-2.5">
           <img
             src="/logo.jpg"
@@ -424,10 +424,10 @@ export default function App() {
       )}
 
       {/* Main View Router */}
-      <main className="flex-1 flex flex-col relative overflow-hidden h-full">
+      <main className="flex-1 flex flex-col relative w-full h-full min-h-0">
         {!room ? (
           /* Staging / Welcome / Join Screen */
-          <div className="flex-1 overflow-y-auto flex flex-col items-center justify-center p-4 sm:p-6 max-w-md mx-auto w-full animate-fadeIn">
+          <div className="flex-1 touch-scroll flex flex-col items-center justify-start sm:justify-center p-4 sm:p-6 max-w-md mx-auto w-full animate-fadeIn py-6">
             <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-4 sm:gap-5 my-auto">
               {/* Logo & Title */}
               <div className="flex flex-col items-center text-center">

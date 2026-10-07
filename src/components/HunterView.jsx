@@ -266,8 +266,8 @@ export default function HunterView({
       </div>
 
       {/* Bottom Vertical Tactical Drawer (Built for Mobile) */}
-      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between pb-1">
+      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5 max-h-[50vh] touch-scroll overflow-y-auto flex-shrink-0">
+        <div className="flex items-center justify-between pb-1 flex-shrink-0">
           <div className="text-[11px] font-mono uppercase font-black text-slate-400 tracking-wider">
             Hunter Tracking & Capture
           </div>
@@ -281,7 +281,7 @@ export default function HunterView({
         </div>
 
         {drawerOpen && (
-          <div className="flex flex-col gap-2.5 animate-fadeIn">
+          <div className="flex flex-col gap-2.5 animate-fadeIn pb-2">
             {/* BIG PRIMARY TAG RUNNER BUTTON */}
             <button
               onClick={() => handleOpenTag(nearestRunner || activeRunners[0])}
