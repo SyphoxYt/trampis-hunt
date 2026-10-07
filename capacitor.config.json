@@ -1,0 +1,14 @@
+{
+  "appId": "com.trampishunt.app",
+  "appName": "Trampis Hunt",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}

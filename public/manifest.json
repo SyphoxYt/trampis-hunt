@@ -1,0 +1,17 @@
+{
+  "short_name": "TrampisHunt",
+  "name": "Trampis Hunt - GPS Pursuit",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1C1917",
+  "theme_color": "#D97757",
+  "display": "standalone",
+  "orientation": "portrait"
+}
