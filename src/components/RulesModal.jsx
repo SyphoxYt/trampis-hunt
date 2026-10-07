@@ -17,8 +17,8 @@ export default function RulesModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn select-none">
-      <div className="bg-slate-900 rounded-3xl p-6 max-w-lg w-full border border-slate-800 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+      <div className="bg-slate-900 rounded-3xl p-6 max-w-lg w-full border border-slate-800 shadow-2xl flex flex-col max-h-[90vh] touch-scroll overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5">

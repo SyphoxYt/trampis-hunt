@@ -327,9 +327,9 @@ export default function App() {
   };
 
   return (
-    <div className={`min-h-full w-full flex-1 flex flex-col ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans antialiased`}>
+    <div className={`h-full w-full flex flex-col overflow-hidden ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans antialiased`}>
       {/* Universal Tactical Header Bar */}
-      <header className="h-14 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 sticky top-0 z-40">
+      <header className="h-14 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-40">
         <div className="flex items-center gap-2.5">
           <img
             src="/logo.jpg"
@@ -424,11 +424,12 @@ export default function App() {
       )}
 
       {/* Main View Router */}
-      <main className="flex-1 flex flex-col relative w-full h-full min-h-0">
+      <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col relative">
         {!room ? (
           /* Staging / Welcome / Join Screen */
-          <div className="flex-1 touch-scroll flex flex-col items-center justify-start sm:justify-center p-4 sm:p-6 max-w-md mx-auto w-full animate-fadeIn py-6">
-            <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-4 sm:gap-5 my-auto">
+          <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain">
+            <div className="flex flex-col items-center justify-start sm:justify-center p-4 sm:p-6 max-w-md mx-auto w-full min-h-full py-6 pb-28">
+              <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-4 sm:gap-5 my-auto">
               {/* Logo & Title */}
               <div className="flex flex-col items-center text-center">
                 <img
@@ -526,6 +527,7 @@ export default function App() {
               )}
             </div>
           </div>
+        </div>
         ) : room.status === 'lobby' ? (
           <Lobby
             room={room}
@@ -575,7 +577,7 @@ export default function App() {
       {/* Crossplay Server Settings Modal */}
       {showServerModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-4 max-h-[90vh] touch-scroll overflow-y-auto overscroll-contain">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-2xl bg-cyan-500/20 text-cyan-400">
                 <Server className="w-5 h-5" />

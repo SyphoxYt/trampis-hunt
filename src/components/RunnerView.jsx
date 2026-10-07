@@ -108,7 +108,7 @@ export default function RunnerView({
   const gpsInfo = getGpsQuality(userLocation?.accuracy);
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-950 text-slate-100 select-none overflow-hidden relative">
+    <div className="w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden relative">
       {/* Battery Saver AMOLED Mode */}
       {isBatterySaver && (
         <BatterySaverHUD
@@ -124,7 +124,7 @@ export default function RunnerView({
       )}
 
       {/* Top Mobile Bar */}
-      <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md z-20">
+      <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md flex-shrink-0 z-20">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse" />
           <div>
@@ -218,7 +218,7 @@ export default function RunnerView({
       </div>
 
       {/* Google Map View (The Hero Element) */}
-      <div className="flex-1 w-full h-full relative z-0">
+      <div className="flex-1 min-h-0 w-full relative z-0">
         <TacticalMap
           userLocation={userLocation}
           pins={myPins}
@@ -228,7 +228,7 @@ export default function RunnerView({
       </div>
 
       {/* Bottom Vertical Tactical Drawer (Built for Mobile) */}
-      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5 max-h-[50vh] touch-scroll overflow-y-auto flex-shrink-0">
+      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5 max-h-[50vh] touch-scroll overflow-y-auto overscroll-contain flex-shrink-0">
         <div className="flex items-center justify-between pb-1 flex-shrink-0">
           <div className="text-[11px] font-mono uppercase font-black text-slate-400 tracking-wider">
             Runner Tactical Gear

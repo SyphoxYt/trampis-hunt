@@ -22,7 +22,8 @@ export default function GameOverView({ room, playerId, onResetGame, onLeaveRoom 
   }, []);
 
   return (
-    <div className="w-full max-w-lg mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-20 select-none animate-fadeIn">
+    <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain">
+      <div className="w-full max-w-lg mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-36 animate-fadeIn">
       {/* Top Back Action */}
       <div className="flex items-center justify-between">
         <button
@@ -118,6 +119,7 @@ export default function GameOverView({ room, playerId, onResetGame, onLeaveRoom 
           Awaiting host to initiate rematch...
         </div>
       )}
+      </div>
     </div>
   );
 }

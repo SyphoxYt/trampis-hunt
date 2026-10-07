@@ -90,8 +90,9 @@ export default function Lobby({
   };
 
   return (
-    <div className="w-full flex-1 touch-scroll overflow-y-auto max-w-xl mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-24 select-none animate-fadeIn">
-      {/* Top Navigation */}
+    <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain animate-fadeIn">
+      <div className="max-w-xl mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-36">
+        {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <button
           onClick={onLeaveRoom}
@@ -203,14 +204,14 @@ export default function Lobby({
 
         {/* Shuffle Mode Selector for Friend Groups */}
         {isHost && (
-          <div className="p-2 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between text-xs">
+          <div className="p-2.5 bg-slate-900/70 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">
               Split Mode:
             </span>
-            <div className="flex gap-1">
+            <div className="grid grid-cols-4 gap-1 sm:flex sm:gap-1.5">
               {[
                 { id: 'balanced', label: 'Balanced' },
-                { id: 'solo_runner', label: 'Solo Runner' },
+                { id: 'solo_runner', label: 'Solo' },
                 { id: 'duo_runner', label: 'Duo' },
                 { id: '50_50', label: '50/50' }
               ].map((m) => (
@@ -220,9 +221,9 @@ export default function Lobby({
                     setShuffleMode(m.id);
                     onRandomizeTeams(m.id);
                   }}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition ${
+                  className={`px-2 py-1.5 rounded-xl text-[10px] font-mono font-bold transition text-center active:scale-95 ${
                     shuffleMode === m.id
-                      ? 'bg-cyan-500 text-slate-950'
+                      ? 'bg-cyan-500 text-slate-950 shadow-sm'
                       : 'bg-slate-800 text-slate-400 hover:text-white'
                   }`}
                 >
@@ -253,20 +254,20 @@ export default function Lobby({
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-1.5 mt-1.5">
+            <div className="grid grid-cols-4 sm:grid-cols-4 gap-1.5 mt-1.5">
               {[
                 { label: '30m', val: 30 },
                 { label: '45m', val: 45 },
-                { label: '1 Hour', val: 60 },
-                { label: '1.5 Hours', val: 90 },
-                { label: '2 Hours', val: 120 },
-                { label: '2.5 Hours', val: 150 },
-                { label: '3 Hours (Max)', val: 180 }
+                { label: '1h', val: 60 },
+                { label: '1.5h', val: 90 },
+                { label: '2h', val: 120 },
+                { label: '2.5h', val: 150 },
+                { label: '3h (Max)', val: 180 }
               ].map((opt) => (
                 <button
                   key={opt.val}
                   onClick={() => onUpdateSettings({ gameDurationMinutes: opt.val })}
-                  className={`py-1.5 px-1 text-center rounded-xl text-xs font-semibold border transition ${
+                  className={`py-2 px-1 text-center rounded-xl text-xs font-semibold border transition active:scale-95 ${
                     durationMinutes === opt.val
                       ? 'bg-cyan-600 text-white border-cyan-400 shadow-md font-bold'
                       : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
@@ -321,18 +322,18 @@ export default function Lobby({
             <label className="text-[11px] font-mono text-slate-400 uppercase font-bold">
               Pin Drop Interval
             </label>
-            <div className="grid grid-cols-5 gap-1.5 mt-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 mt-1.5">
               {[
                 { label: '1m (Test)', val: 1 },
                 { label: '3m', val: 3 },
                 { label: '5m', val: 5 },
-                { label: '10m (Standard)', val: 10 },
+                { label: '10m (Std)', val: 10 },
                 { label: '15m (Stealth)', val: 15 }
               ].map((opt) => (
                 <button
                   key={opt.val}
                   onClick={() => onUpdateSettings({ pinIntervalMinutes: opt.val })}
-                  className={`py-1.5 px-1 text-center rounded-xl text-[11px] font-semibold border transition ${
+                  className={`py-2 px-1 text-center rounded-xl text-[11px] font-semibold border transition active:scale-95 ${
                     pinIntervalMinutes === opt.val
                       ? 'bg-cyan-600 text-white border-cyan-400 shadow-md font-bold'
                       : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700'
@@ -505,6 +506,7 @@ export default function Lobby({
           <span>Awaiting Host to launch the hunt...</span>
         </div>
       )}
+      </div>
 
       {/* QR Code Invite Modal */}
       {showQrModal && (
