@@ -520,7 +520,7 @@ export default function App() {
                     </button>
                   </div>
                   <p className="text-[10px] text-slate-300 leading-snug">
-                    Connecting to <strong className="text-cyan-400 font-mono">{customServerUrl || '192.168.0.101:3001'}</strong>. Make sure your phone is on the same Wi-Fi network as the host PC!
+                    Connecting to <strong className="text-cyan-400 font-mono">{customServerUrl || 'https://trampis-hunt.onrender.com'}</strong>. Check your internet connection!
                   </p>
                 </div>
               )}
