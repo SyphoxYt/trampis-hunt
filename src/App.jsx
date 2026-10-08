@@ -63,6 +63,19 @@ export default function App() {
     const onConnect = () => {
       setIsConnected(true);
       setPlayerId(socket.id);
+
+      // Reconnect to active room if phone woke up from background
+      const savedCode = localStorage.getItem('trampis_active_room');
+      const savedName = localStorage.getItem('trampis_player_name');
+      if (savedCode) {
+        socket.emit('reconnect_room', { roomCode: savedCode, playerId: socket.id, playerName: savedName }, (res) => {
+          if (res?.success) {
+            setRoom(res.room);
+          } else {
+            localStorage.removeItem('trampis_active_room');
+          }
+        });
+      }
     };
 
     const onDisconnect = () => {
@@ -216,10 +229,7 @@ export default function App() {
         }
       },
       (err) => {
-        console.warn('GPS init note:', err.message);
-        if (!userLocation) {
-          locationTracker.setSimulated(true, 51.505, -0.09);
-        }
+        console.warn('GPS signal pending or error:', err?.message || err);
       }
     );
 
@@ -229,34 +239,53 @@ export default function App() {
   // Handlers
   const handleCreateRoom = () => {
     sound.init();
+    if (!socket.connected) {
+      setErrorMessage('Connecting to game server... Please try again in a few seconds.');
+      socket.connect();
+      return;
+    }
     socket.emit('create_room', { playerName }, (res) => {
-      if (res.success) {
+      if (res?.success) {
         setRoom(res.room);
         setPlayerId(res.playerId);
+        localStorage.setItem('trampis_active_room', res.room.code);
+      } else {
+        setErrorMessage(res?.message || 'Failed to create room. Please try again.');
       }
     });
   };
 
   const handleJoinRoom = () => {
-    if (!roomCodeInput.trim()) return;
+    const code = roomCodeInput.trim().toUpperCase();
+    if (!code) {
+      setErrorMessage('Please enter a 5-character room code.');
+      return;
+    }
+    if (!socket.connected) {
+      setErrorMessage('Connecting to game server... Please wait a moment.');
+      socket.connect();
+      return;
+    }
     sound.init();
     socket.emit(
       'join_room',
-      { roomCode: roomCodeInput.trim().toUpperCase(), playerName },
+      { roomCode: code, playerName },
       (res) => {
-        if (res.success) {
+        if (res?.success) {
           setRoom(res.room);
           setPlayerId(res.playerId);
+          localStorage.setItem('trampis_active_room', res.room.code);
         } else {
           sound.playErrorBuzz();
-          setErrorMessage(res.message);
-          setTimeout(() => setErrorMessage(''), 4500);
+          setErrorMessage(res?.message || 'Room not found. Check code and try again.');
+          setTimeout(() => setErrorMessage(''), 5000);
         }
       }
     );
   };
 
   const handleLeaveRoom = () => {
+    localStorage.removeItem('trampis_active_room');
     socket.emit('leave_room', () => {
       setRoom(null);
     });
@@ -435,37 +464,37 @@ export default function App() {
                 <img
                   src="/logo.jpg"
                   alt="Trampis Hunt Logo"
-                  className="w-24 h-24 rounded-3xl border-2 border-cyan-500/40 shadow-xl object-cover mb-3"
+                  className="w-20 h-20 rounded-2xl border border-slate-700 shadow-md object-cover mb-3"
                 />
-                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
                   REAL-WORLD GPS PURSUIT
                 </span>
-                <h2 className="text-3xl font-serif font-black text-white mt-2">
+                <h2 className="text-2xl font-bold tracking-tight text-white mt-2">
                   Trampis Hunt
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Runners on foot vs Hunters on wheels. 10-minute radar pings. Don't get caught.
+                  Runners on foot vs Hunters tracking on radar. Don't get caught.
                 </p>
               </div>
 
               {/* Codename Input */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-mono uppercase font-bold text-slate-400 tracking-wider">
-                  Operative Codename
+                  Your Codename
                 </label>
                 <input
                   type="text"
                   value={playerName}
                   onChange={(e) => handleNameChange(e.target.value)}
-                  placeholder="Your Codename"
-                  className="px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-semibold text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="Enter codename"
+                  className="px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
               {/* Host Game Button */}
               <button
                 onClick={handleCreateRoom}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 font-black text-sm shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
               >
                 <Sparkles className="w-4 h-4" />
                 <span>HOST NEW HUNT</span>
@@ -473,7 +502,7 @@ export default function App() {
 
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-800" />
-                <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">OR JOIN WITH CODE</span>
+                <span className="text-[10px] font-mono text-slate-500 uppercase font-bold">OR ENTER CODE</span>
                 <div className="h-px flex-1 bg-slate-800" />
               </div>
 
@@ -484,13 +513,13 @@ export default function App() {
                   maxLength={5}
                   value={roomCodeInput}
                   onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
-                  placeholder="CODE"
-                  className="flex-1 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-mono font-black tracking-widest uppercase text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                  placeholder="5-LETTER CODE"
+                  className="flex-1 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-mono font-bold tracking-widest uppercase text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
                 />
                 <button
                   onClick={handleJoinRoom}
                   disabled={!roomCodeInput.trim()}
-                  className="px-5 py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 active:scale-95"
+                  className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 active:scale-95 cursor-pointer"
                 >
                   <span>Join</span>
                   <ArrowRight className="w-4 h-4" />
@@ -500,7 +529,7 @@ export default function App() {
               {/* Field Manual Link */}
               <button
                 onClick={() => setShowRules(true)}
-                className="text-center text-xs text-slate-400 hover:text-cyan-400 font-semibold transition flex items-center justify-center gap-1.5 pt-1"
+                className="text-center text-xs text-slate-400 hover:text-white font-medium transition flex items-center justify-center gap-1.5 pt-1 cursor-pointer"
               >
                 <BookOpen className="w-3.5 h-3.5" />
                 <span>How to Play & Field Rules</span>
@@ -508,20 +537,20 @@ export default function App() {
 
               {/* Offline / Reconnecting Helper Card */}
               {!isConnected && (
-                <div className="p-3 bg-rose-950/40 border border-rose-900/60 rounded-2xl flex flex-col gap-2 mt-1">
-                  <div className="flex items-center justify-between text-xs font-mono font-bold text-rose-400">
+                <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col gap-2 mt-1">
+                  <div className="flex items-center justify-between text-xs font-mono font-bold text-amber-400">
                     <span className="flex items-center gap-1.5">
-                      <WifiOff className="w-3.5 h-3.5" /> RECONNECTING TO HOST
+                      <WifiOff className="w-3.5 h-3.5" /> CONNECTING TO SERVER
                     </span>
                     <button
                       onClick={() => setShowServerModal(true)}
-                      className="px-2 py-0.5 rounded-lg bg-rose-500/20 text-rose-300 text-[10px] hover:bg-rose-500/30 font-bold underline"
+                      className="px-2 py-0.5 rounded-lg bg-slate-800 text-slate-300 text-[10px] hover:bg-slate-700 font-bold"
                     >
-                      Change IP
+                      Server Settings
                     </button>
                   </div>
-                  <p className="text-[10px] text-slate-300 leading-snug">
-                    Connecting to <strong className="text-cyan-400 font-mono">{customServerUrl || 'https://trampis-hunt.onrender.com'}</strong>. Check your internet connection!
+                  <p className="text-[10px] text-slate-400 leading-snug">
+                    Connecting to <strong className="text-white font-mono">{customServerUrl || 'https://trampis-hunt.onrender.com'}</strong>...
                   </p>
                 </div>
               )}

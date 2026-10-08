@@ -21,7 +21,7 @@ export default function TacticalMap({
     tripwires: []
   });
   const [autoFollow, setAutoFollow] = useState(true);
-  const [mapType, setMapType] = useState('streets'); // 'streets' | 'satellite'
+  const [mapType, setMapType] = useState('satellite'); // 'satellite' | 'streets'
 
   // Google Maps tile layers
   const googleStreetsUrl = 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}';
@@ -49,7 +49,7 @@ export default function TacticalMap({
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-    const tileLayer = L.tileLayer(googleStreetsUrl, {
+    const tileLayer = L.tileLayer(googleSatelliteUrl, {
       maxZoom: 20,
       subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
     }).addTo(map);

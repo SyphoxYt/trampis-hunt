@@ -4,8 +4,8 @@ import { Trophy, Footprints, Car, RotateCcw, ShieldCheck, ArrowLeft } from 'luci
 import { sound } from '../services/sound';
 
 export default function GameOverView({ room, playerId, onResetGame, onLeaveRoom }) {
-  const isHost = room.hostId === playerId;
-  const players = Object.values(room.players || {});
+  const isHost = room?.hostId === playerId;
+  const players = Object.values(room?.players || {});
   const runners = players.filter((p) => p.role === 'runner');
   const caughtRunners = runners.filter((p) => p.isCaught);
   const survivedRunners = runners.filter((p) => !p.isCaught);
@@ -13,12 +13,20 @@ export default function GameOverView({ room, playerId, onResetGame, onLeaveRoom 
   const didRunnersWin = survivedRunners.length > 0;
 
   useEffect(() => {
-    sound.playVictory();
-    confetti({
-      particleCount: 100,
-      spread: 80,
-      origin: { y: 0.6 }
-    });
+    try {
+      sound.playVictory();
+    } catch (e) {}
+    try {
+      if (typeof window !== 'undefined') {
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+    } catch (e) {
+      console.warn('Confetti effect note:', e);
+    }
   }, []);
 
   return (

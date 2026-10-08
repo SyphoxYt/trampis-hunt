@@ -1,3 +1,5 @@
+import { Geolocation } from '@capacitor/geolocation';
+
 /**
  * Geolocation & Compass Telemetry Service
  */
@@ -53,6 +55,7 @@ export function getGpsQuality(accuracy) {
 class LocationTracker {
   constructor() {
     this.watchId = null;
+    this.capCallbackId = null;
     this.orientationListener = null;
     this.listeners = new Set();
     this.currentLocation = null;
@@ -61,7 +64,7 @@ class LocationTracker {
     this.simulatedCoords = { lat: 51.505, lng: -0.09 };
   }
 
-  start(onUpdate, onError) {
+  async start(onUpdate, onError) {
     if (onUpdate) this.listeners.add(onUpdate);
 
     if (this.isSimulated) {
@@ -69,35 +72,101 @@ class LocationTracker {
       return;
     }
 
-    if (!('geolocation' in navigator)) {
-      if (onError) onError(new Error('Geolocation not supported by device'));
-      return;
+    // 1. Try native Capacitor Geolocation on Android
+    let capacitorSuccess = false;
+    try {
+      if (typeof window !== 'undefined') {
+        // Request runtime permission modal on Android if needed
+        try {
+          const perm = await Geolocation.checkPermissions();
+          if (perm.location !== 'granted') {
+            await Geolocation.requestPermissions();
+          }
+        } catch (permErr) {
+          console.warn('Native GPS permission check note:', permErr);
+        }
+
+        // Get initial position quickly
+        try {
+          const initialPos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 5000
+          });
+          if (initialPos && initialPos.coords) {
+            this.currentLocation = {
+              lat: initialPos.coords.latitude,
+              lng: initialPos.coords.longitude,
+              accuracy: Math.round(initialPos.coords.accuracy || 10),
+              heading: initialPos.coords.heading ?? this.deviceHeading ?? 0,
+              speed: initialPos.coords.speed ? Math.round(initialPos.coords.speed * 3.6) : 0,
+              timestamp: initialPos.timestamp
+            };
+            this.notify();
+          }
+        } catch (initErr) {
+          console.warn('Initial GPS fetch note:', initErr);
+        }
+
+        // Watch continuous live movement
+        this.capCallbackId = await Geolocation.watchPosition(
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 1000
+          },
+          (pos, err) => {
+            if (err) {
+              console.warn('Native GPS watch error:', err);
+              if (onError) onError(err);
+              return;
+            }
+            if (pos && pos.coords) {
+              this.currentLocation = {
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                accuracy: Math.round(pos.coords.accuracy || 10),
+                heading: pos.coords.heading ?? this.deviceHeading ?? 0,
+                speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
+                timestamp: pos.timestamp
+              };
+              this.notify();
+            }
+          }
+        );
+        capacitorSuccess = true;
+      }
+    } catch (e) {
+      console.warn('Capacitor Geolocation unavailable, using browser navigator:', e);
     }
 
-    const options = {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 2000
-    };
+    // 2. Browser fallback for web browsers
+    if (!capacitorSuccess && 'geolocation' in navigator) {
+      const options = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 2000
+      };
 
-    this.watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        this.currentLocation = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          accuracy: Math.round(pos.coords.accuracy || 10),
-          heading: pos.coords.heading ?? this.deviceHeading ?? 0,
-          speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
-          timestamp: pos.timestamp
-        };
-        this.notify();
-      },
-      (err) => {
-        console.warn('Geolocation error:', err.message);
-        if (onError) onError(err);
-      },
-      options
-    );
+      this.watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          this.currentLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: Math.round(pos.coords.accuracy || 10),
+            heading: pos.coords.heading ?? this.deviceHeading ?? 0,
+            speed: pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0,
+            timestamp: pos.timestamp
+          };
+          this.notify();
+        },
+        (err) => {
+          console.warn('Browser GPS watch error:', err.message);
+          if (onError) onError(err);
+        },
+        options
+      );
+    }
 
     // Listen to device compass orientation if supported
     if (typeof window !== 'undefined' && window.DeviceOrientationEvent) {
@@ -115,7 +184,13 @@ class LocationTracker {
     }
   }
 
-  stop() {
+  async stop() {
+    if (this.capCallbackId) {
+      try {
+        await Geolocation.clearWatch({ id: this.capCallbackId });
+      } catch (e) {}
+      this.capCallbackId = null;
+    }
     if (this.watchId !== null && 'geolocation' in navigator) {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;

@@ -26,6 +26,7 @@ const io = new Server(httpServer, {
 });
 
 const rooms = new Map();
+const roomCleanupTimers = new Map();
 
 function generateCatchCode() {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -654,9 +655,10 @@ io.on('connection', (socket) => {
 
     const codeMatch = catchCodeInput && catchCodeInput.trim() === runner.catchCode;
     let proximityMatch = false;
+    let distMeters = null;
 
     if (hunter.currentLocation && runner.currentLocation) {
-      const distMeters = calculateDistanceMeters(
+      distMeters = calculateDistanceMeters(
         hunter.currentLocation.lat,
         hunter.currentLocation.lng,
         runner.currentLocation.lat,
@@ -668,9 +670,12 @@ io.on('connection', (socket) => {
     }
 
     if (!codeMatch && !proximityMatch) {
+      const msg = distMeters !== null
+        ? `Too far for proximity tag (${distMeters}m away). Must be within 25m or type runner's 4-digit catch code.`
+        : "Must be within 25m with active GPS or enter runner's 4-digit catch code.";
       if (callback) callback({
         success: false,
-        message: 'Tag unverified: Must be within 25m or type runner 4-digit catch code.'
+        message: msg
       });
       return;
     }
@@ -792,21 +797,78 @@ io.on('connection', (socket) => {
     io.to(code).emit('room_updated', room);
   });
 
-  // Disconnect
+  // Reconnect / Rejoin room on app resume or network recovery
+  socket.on('reconnect_room', ({ roomCode, playerId, playerName }, callback) => {
+    const code = roomCode?.trim().toUpperCase();
+    const room = rooms.get(code);
+    if (!room) {
+      if (callback) callback({ success: false, message: 'Room session expired.' });
+      return;
+    }
+
+    // Cancel pending room deletion if anyone reconnects
+    if (roomCleanupTimers.has(code)) {
+      clearTimeout(roomCleanupTimers.get(code));
+      roomCleanupTimers.delete(code);
+    }
+
+    // Find player by old socket ID or by codename
+    let player = room.players[playerId];
+    if (!player && playerName) {
+      player = Object.values(room.players).find(
+        (p) => p.name.trim().toLowerCase() === playerName.trim().toLowerCase()
+      );
+    }
+
+    if (player) {
+      const oldId = player.id;
+      delete room.players[oldId];
+      player.id = socket.id;
+      player.isOnline = true;
+      delete player.disconnectedAt;
+      room.players[socket.id] = player;
+
+      if (room.hostId === oldId) {
+        room.hostId = socket.id;
+      }
+
+      socket.join(code);
+      socket.data.roomCode = code;
+      socket.data.playerName = player.name;
+
+      console.log(`[Player Reconnected] ${player.name} (${socket.id}) in room ${code}`);
+      if (callback) callback({ success: true, room, playerId: socket.id });
+      io.to(code).emit('room_updated', room);
+      return;
+    }
+
+    if (callback) callback({ success: false, message: 'Player not found in active session.' });
+  });
+
+  // Disconnect - Mark offline, do NOT destroy room immediately!
   socket.on('disconnect', () => {
     console.log(`[Socket] Disconnected: ${socket.id}`);
     const code = socket.data.roomCode;
     if (code && rooms.has(code)) {
       const room = rooms.get(code);
-      delete room.players[socket.id];
+      const player = room.players[socket.id];
+      if (player) {
+        player.isOnline = false;
+        player.disconnectedAt = Date.now();
+      }
 
-      if (Object.keys(room.players).length === 0) {
-        rooms.delete(code);
-        console.log(`[Room Deleted] ${code} (all left)`);
+      // Check if all players in room are offline
+      const onlinePlayers = Object.values(room.players).filter((p) => p.isOnline !== false);
+      if (onlinePlayers.length === 0) {
+        console.log(`[Room Idle] All players disconnected from ${code}. Setting 10-minute grace timer.`);
+        if (roomCleanupTimers.has(code)) clearTimeout(roomCleanupTimers.get(code));
+        const timer = setTimeout(() => {
+          rooms.delete(code);
+          roomCleanupTimers.delete(code);
+          console.log(`[Room Deleted] ${code} (grace period expired)`);
+        }, 10 * 60 * 1000);
+        roomCleanupTimers.set(code, timer);
       } else {
-        if (room.hostId === socket.id) {
-          room.hostId = Object.keys(room.players)[0];
-        }
         io.to(code).emit('room_updated', room);
       }
     }

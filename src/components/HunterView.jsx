@@ -156,7 +156,7 @@ export default function HunterView({
   const gpsInfo = getGpsQuality(userLocation?.accuracy);
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-950 text-slate-100 overflow-hidden relative">
+    <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain bg-slate-950 text-slate-100">
       {/* Battery Saver AMOLED HUD */}
       {isBatterySaver && (
         <BatterySaverHUD
@@ -174,66 +174,65 @@ export default function HunterView({
         />
       )}
 
-      {/* Top Mobile Bar */}
-      <div className="px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between shadow-md flex-shrink-0 z-20">
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
-          <div>
-            <div className="text-[11px] font-mono font-black uppercase text-blue-400 tracking-wider">
-              HUNTER COMMAND
+      <div className="max-w-xl mx-auto flex flex-col gap-3.5 p-4 sm:p-5 pb-28">
+        {/* Top Header Bar */}
+        <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" />
+            <div>
+              <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                HUNTER • IN PURSUIT
+              </div>
+              <div className="text-sm font-semibold text-white flex items-center gap-2">
+                <span>{player.name}</span>
+                <span className={`text-[10px] font-mono ${gpsInfo.color}`}>
+                  • {gpsInfo.label}
+                </span>
+              </div>
             </div>
-            <div className="text-xs text-slate-300 font-semibold flex items-center gap-2">
-              <span>{player.name}</span>
-              <span className={`text-[10px] font-mono font-bold ${gpsInfo.color}`}>
-                • {gpsInfo.label}
-              </span>
-            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsBatterySaver(true)}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95 transition"
+              title="AMOLED Battery Saver"
+            >
+              <BatteryCharging className="w-4 h-4 text-emerald-400" />
+            </button>
+            <button
+              onClick={toggleSound}
+              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95 transition"
+              title="Toggle Sound"
+            >
+              {isMuted ? <VolumeX className="w-4 h-4 text-slate-500" /> : <Volume2 className="w-4 h-4 text-blue-400" />}
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsBatterySaver(true)}
-            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 active:scale-95"
-            title="AMOLED Battery Saver"
-          >
-            <BatteryCharging className="w-4 h-4 text-emerald-400" />
-          </button>
-
-          <button
-            onClick={toggleSound}
-            className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 active:scale-95"
-            title="Toggle Sound"
-          >
-            {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-cyan-400" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Floating Nearest Prey Intel Card (Vertical Mobile Hero HUD) */}
-      <div className="absolute top-16 left-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-none">
-        <div className="p-3 bg-slate-900/95 backdrop-blur-md border border-slate-800 rounded-2xl shadow-2xl flex items-center justify-between pointer-events-auto">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-              <Target className="w-5 h-5 text-cyan-400" />
+        {/* Hunt Radar Overview Card (In-Flow, Never Overlapping) */}
+        <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <Target className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <div className="text-[10px] font-mono text-slate-400 uppercase font-bold tracking-wider">
-                {nearestRunner ? `NEAREST TARGET: ${nearestRunner.name}` : 'SEARCHING RADAR'}
+              <div className="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">
+                {nearestRunner ? `CLOSEST TARGET • ${nearestRunner.name.toUpperCase()}` : 'ACTIVE TARGETS'}
               </div>
-              <div className="text-xl font-mono font-black text-cyan-400">
+              <div className="text-xl font-mono font-black text-blue-400">
                 {nearestRunner
                   ? `${formatDistance(nearestRunner.distanceMeters)} ${nearestRunner.bearing ? `(${nearestRunner.bearing.cardinal})` : ''}`
-                  : `${activeRunners.length} Active Targets`}
+                  : `${activeRunners.length} Active`}
               </div>
             </div>
           </div>
 
           <div className="text-right">
-            <div className="text-[10px] font-mono text-slate-400 uppercase font-bold">
+            <div className="text-[10px] font-mono uppercase font-bold text-slate-400 tracking-wider">
               TIME LEFT
             </div>
-            <div className="text-sm font-mono font-black text-white">
+            <div className="text-base font-mono font-bold text-white">
               {formatTimer(timeLeftMs)}
             </div>
           </div>
@@ -241,161 +240,158 @@ export default function HunterView({
 
         {/* Tripwire Placement Mode Banner */}
         {tripwireDeployMode && (
-          <div className="p-2.5 bg-cyan-600 text-white rounded-xl text-xs font-bold shadow-xl flex items-center justify-between pointer-events-auto animate-fadeIn">
-            <span>📡 Tap any road or intersection on the Google Map to arm your tripwire!</span>
+          <div className="p-3 bg-blue-900/80 border border-blue-500 rounded-2xl text-xs font-semibold text-blue-100 flex items-center justify-between animate-fadeIn">
+            <span>Tap any street or corner on the satellite map to arm tripwire sensor!</span>
             <button
               onClick={() => setTripwireDeployMode(false)}
-              className="underline text-[11px] ml-2 font-bold"
+              className="px-2.5 py-1 rounded-lg bg-blue-950 border border-blue-700 text-xs font-bold text-blue-300 ml-2"
             >
               Cancel
             </button>
           </div>
         )}
-      </div>
 
-      {/* Google Maps View (The Hero Element) */}
-      <div className="flex-1 min-h-0 w-full relative z-0">
-        <TacticalMap
-          userLocation={userLocation}
-          pins={pins}
-          teammates={teammateLocations}
-          tripwires={tripwires}
-          userRole="hunter"
-          onMapClick={handleMapClick}
-        />
-      </div>
-
-      {/* Bottom Vertical Tactical Drawer (Built for Mobile) */}
-      <div className="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col gap-2.5 max-h-[50vh] touch-scroll overflow-y-auto overscroll-contain flex-shrink-0">
-        <div className="flex items-center justify-between pb-1 flex-shrink-0">
-          <div className="text-[11px] font-mono uppercase font-black text-slate-400 tracking-wider">
-            Hunter Tracking & Capture
-          </div>
-          <button
-            onClick={() => setDrawerOpen(!drawerOpen)}
-            className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-mono"
-          >
-            <span>{drawerOpen ? 'Collapse' : 'Expand'}</span>
-            {drawerOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
-          </button>
+        {/* Satellite Map View (Dedicated In-Flow Container) */}
+        <div className="w-full h-[320px] sm:h-[380px] rounded-2xl overflow-hidden border border-slate-800 shadow-sm relative">
+          <TacticalMap
+            userLocation={userLocation}
+            pins={pins}
+            teammates={teammateLocations}
+            tripwires={tripwires}
+            userRole="hunter"
+            onMapClick={handleMapClick}
+          />
         </div>
 
-        {drawerOpen && (
-          <div className="flex flex-col gap-2.5 animate-fadeIn pb-2">
-            {/* BIG PRIMARY TAG RUNNER BUTTON */}
-            <button
-              onClick={() => handleOpenTag(nearestRunner || activeRunners[0])}
-              disabled={activeRunners.length === 0}
-              className={`w-full py-4 rounded-2xl font-black font-mono text-sm shadow-xl flex items-center justify-center gap-2.5 transition-all active:scale-98 ${
-                activeRunners.length > 0
-                  ? 'bg-rose-600 hover:bg-rose-700 text-white cursor-pointer shadow-rose-950/60 animate-pulse'
-                  : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-              }`}
-            >
-              <Crosshair className="w-5 h-5" />
-              <span>
-                {nearestRunner ? `TAG ${nearestRunner.name.toUpperCase()}` : 'TAG RUNNER'}
-              </span>
-            </button>
-
-            {/* Tactical Gear Full-Width Vertical Cards */}
-            <div className="flex flex-col gap-2">
-              {/* Drone Recon Sweep */}
-              <button
-                onClick={handleDroneScanClick}
-                disabled={droneScansLeft <= 0}
-                className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition ${
-                  droneScansLeft > 0
-                    ? 'bg-cyan-950/60 hover:bg-cyan-900/60 border-cyan-700 text-cyan-200 active:scale-98 shadow-md'
-                    : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
-                    <Plane className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Drone Recon Sweep</div>
-                    <div className="text-[11px] text-cyan-300/80">
-                      Forces instant radar coordinates for all active runners
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-black px-2.5 py-1 rounded-xl bg-cyan-900/80 text-cyan-300 border border-cyan-700">
-                  {droneScansLeft} LEFT
-                </span>
-              </button>
-
-              {/* Perimeter Motion Tripwire */}
-              <button
-                onClick={() => setTripwireDeployMode(true)}
-                disabled={tripwiresLeft <= 0}
-                className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition ${
-                  tripwiresLeft > 0
-                    ? 'bg-blue-950/60 hover:bg-blue-900/60 border-blue-700 text-blue-200 active:scale-98 shadow-md'
-                    : 'bg-slate-800/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-blue-500/20 text-blue-400">
-                    <Radar className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-white">Arm Perimeter Tripwire</div>
-                    <div className="text-[11px] text-blue-300/80">
-                      Place sensor beacon on map • Alerts squad if breached
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-mono font-black px-2.5 py-1 rounded-xl bg-blue-900/80 text-blue-300 border border-blue-700">
-                  {tripwiresLeft} LEFT
-                </span>
-              </button>
-            </div>
-
-            {/* Target Roster Vertical List */}
-            <div className="pt-1 flex flex-col gap-1.5">
-              <div className="text-[10px] font-mono uppercase font-bold text-slate-400">
-                Runner Targets ({activeRunners.length} Active / {caughtRunners.length} Tagged)
-              </div>
-              <div className="max-h-28 overflow-y-auto flex flex-col gap-1">
-                {runners.map((r) => {
-                  const isCaught = r.isCaught;
-                  return (
-                    <div
-                      key={r.id}
-                      onClick={() => !isCaught && handleOpenTag(r)}
-                      className={`p-2.5 rounded-xl border text-xs flex items-center justify-between cursor-pointer transition ${
-                        isCaught
-                          ? 'bg-slate-900/40 border-slate-800 opacity-50'
-                          : 'bg-slate-800/90 hover:border-rose-500 border-slate-700 shadow-sm'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full ${
-                            isCaught ? 'bg-slate-500' : 'bg-rose-500 animate-pulse'
-                          }`}
-                        />
-                        <span className="font-bold text-white">{r.name}</span>
-                      </div>
-
-                      <div className="font-mono text-[11px]">
-                        {isCaught ? (
-                          <span className="text-slate-400">Captured</span>
-                        ) : (
-                          <span className="text-cyan-400 font-bold">
-                            {formatDistance(r.distanceMeters || null)} {r.bearing ? `(${r.bearing.cardinal})` : ''}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        {/* Runner Targets List & Direct Tag Option (Option to pick who to tag!) */}
+        <div className="flex flex-col gap-2.5">
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 px-1 flex items-center justify-between">
+            <span>Target Roster ({activeRunners.length} Active / {caughtRunners.length} Captured)</span>
+            <span className="text-[11px] text-slate-500 font-normal">Select runner to tag</span>
           </div>
-        )}
+
+          {runners.map((r) => {
+            const isCaught = r.isCaught;
+            const runnerDist = runnersWithDistance.find((item) => item.id === r.id);
+            const distMeters = runnerDist?.distanceMeters;
+            const inRange = distMeters !== null && distMeters !== undefined && distMeters <= 25;
+
+            return (
+              <div
+                key={r.id}
+                className={`p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition ${
+                  isCaught
+                    ? 'bg-slate-900/40 border-slate-800 opacity-60'
+                    : inRange
+                    ? 'bg-emerald-950/40 border-emerald-500/60 shadow-md'
+                    : 'bg-slate-900 border-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                      isCaught ? 'bg-slate-500' : inRange ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
+                    }`}
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">{r.name}</span>
+                      {inRange && !isCaught && (
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          IN RANGE (&le;25m)
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs font-mono text-slate-400 mt-0.5">
+                      {isCaught ? (
+                        <span>Captured by {r.caughtBy || 'Hunter'}</span>
+                      ) : distMeters != null ? (
+                        <span className={inRange ? 'text-emerald-300 font-bold' : 'text-slate-300'}>
+                          {formatDistance(distMeters)} {runnerDist?.bearing ? `• ${runnerDist.bearing.cardinal}` : ''}
+                        </span>
+                      ) : (
+                        <span>Awaiting radar telemetry</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {!isCaught && (
+                  <button
+                    onClick={() => handleOpenTag(r)}
+                    className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
+                      inRange
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-md'
+                        : 'bg-rose-600 hover:bg-rose-700 text-white'
+                    }`}
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span>TAG {r.name.toUpperCase()}</span>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Hunter Tactical Powers (Clean Vertical Stack) */}
+        <div className="flex flex-col gap-2.5 pt-1">
+          <div className="text-xs font-mono font-bold uppercase tracking-wider text-slate-400 px-1">
+            Hunter Equipment
+          </div>
+
+          {/* Drone Recon Sweep */}
+          <button
+            onClick={handleDroneScanClick}
+            disabled={droneScansLeft <= 0}
+            className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
+              droneScansLeft > 0
+                ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <Plane className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">Drone Recon Sweep</div>
+                <div className="text-[11px] text-slate-400">
+                  Forces instant radar ping on all active runners
+                </div>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-slate-800 text-blue-300 border border-slate-700">
+              {droneScansLeft} LEFT
+            </span>
+          </button>
+
+          {/* Perimeter Tripwire */}
+          <button
+            onClick={() => setTripwireDeployMode(true)}
+            disabled={tripwiresLeft <= 0}
+            className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
+              tripwiresLeft > 0
+                ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <Radar className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-white">Arm Motion Tripwire</div>
+                <div className="text-[11px] text-slate-400">
+                  Place sensor beacon on satellite map • Alerts if crossed
+                </div>
+              </div>
+            </div>
+            <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-xl bg-slate-800 text-blue-300 border border-slate-700">
+              {tripwiresLeft} LEFT
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Tag Verification Modal */}
@@ -407,46 +403,69 @@ export default function HunterView({
               <span>Confirm Tag: {selectedRunner.name}</span>
             </h3>
 
-            <p className="text-xs text-slate-400 mt-1">
-              Ask runner for their 4-digit code, or tag automatically if within 25 meters.
-            </p>
+            {(() => {
+              const runnerDist = runnersWithDistance.find((item) => item.id === selectedRunner.id);
+              const distMeters = runnerDist?.distanceMeters;
+              const inRange = distMeters !== null && distMeters !== undefined && distMeters <= 25;
 
-            <div className="mt-4 flex flex-col gap-2">
-              <label className="text-[11px] font-mono uppercase text-slate-400 font-bold">
-                Runner 4-Digit Passcode
-              </label>
-              <input
-                type="text"
-                maxLength={4}
-                value={catchCodeInput}
-                onChange={(e) => setCatchCodeInput(e.target.value)}
-                placeholder="0000"
-                className="w-full px-3 py-3 rounded-2xl border border-slate-700 bg-slate-800 font-mono text-2xl text-center font-bold tracking-widest text-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              />
-            </div>
+              return (
+                <>
+                  <div className="mt-2 p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
+                    <span className="text-slate-400 font-mono">Current Distance:</span>
+                    <span className={`font-mono font-bold ${inRange ? 'text-emerald-400' : 'text-slate-200'}`}>
+                      {distMeters != null ? `${formatDistance(distMeters)}` : 'GPS Inactive'}
+                    </span>
+                  </div>
 
-            {tagError && (
-              <div className="mt-2 text-xs text-rose-400 font-medium flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>{tagError}</span>
-              </div>
-            )}
+                  {inRange ? (
+                    <p className="text-xs text-emerald-400 mt-2 font-medium">
+                      ✓ You are within 25 meters! Tap below to register proximity tag.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-2">
+                      Outside 25m auto-range. If cornered in person, enter runner's 4-digit code:
+                    </p>
+                  )}
 
-            <div className="mt-5 flex flex-col gap-2">
-              <button
-                onClick={handleConfirmTag}
-                className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2"
-              >
-                <Crosshair className="w-4 h-4" />
-                <span>{catchCodeInput.length === 4 ? 'VERIFY CODE & TAG' : 'PROXIMITY TAG (<25m)'}</span>
-              </button>
-              <button
-                onClick={() => setShowTagModal(false)}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition"
-              >
-                Cancel
-              </button>
-            </div>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <label className="text-[11px] font-mono uppercase text-slate-400 font-bold">
+                      Runner 4-Digit Code (Optional if in range)
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={catchCodeInput}
+                      onChange={(e) => setCatchCodeInput(e.target.value)}
+                      placeholder="0000"
+                      className="w-full px-3 py-3 rounded-2xl border border-slate-700 bg-slate-950 font-mono text-2xl text-center font-bold tracking-widest text-emerald-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {tagError && (
+                    <div className="mt-2.5 p-2 bg-rose-950/60 border border-rose-800/80 rounded-xl text-xs text-rose-300 font-medium flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                      <span>{tagError}</span>
+                    </div>
+                  )}
+
+                  <div className="mt-5 flex flex-col gap-2">
+                    <button
+                      onClick={handleConfirmTag}
+                      className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Crosshair className="w-4 h-4" />
+                      <span>{catchCodeInput.length === 4 ? 'VERIFY CODE & TAG' : 'REGISTER PROXIMITY TAG'}</span>
+                    </button>
+                    <button
+                      onClick={() => setShowTagModal(false)}
+                      className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

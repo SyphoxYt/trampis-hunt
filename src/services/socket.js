@@ -2,31 +2,24 @@ import { io } from 'socket.io-client';
 
 import config from '../config.json';
 
-// Helper to determine the target backend server URL
 export const getSavedServerUrl = () => {
-  if (typeof window === 'undefined') return config.defaultServerUrl || 'http://192.168.0.101:3001';
+  const PRODUCTION_URL = 'https://trampis-hunt.onrender.com';
+  if (typeof window === 'undefined') return PRODUCTION_URL;
 
-  // 1. Check if user configured a custom server address in app settings
+  // 1. Check if user explicitly configured a custom server address in app settings
   const custom = localStorage.getItem('trampis_server_url');
   if (custom && custom.trim()) {
-    return custom.trim().replace(/\/+$/, '');
+    const trimmed = custom.trim().replace(/\/+$/, '');
+    // Ignore obsolete LAN/localhost configs to prevent cross-play failure
+    if (!trimmed.includes('192.168.') && !trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
+      return trimmed;
+    }
+    // Clean stale local IP from storage
+    localStorage.removeItem('trampis_server_url');
   }
 
-  const { protocol, hostname, port } = window.location;
-
-  // 2. If running on Vite dev port 5173
-  if (port === '5173') {
-    return `${protocol}//${hostname}:3001`;
-  }
-
-  // 3. If served as web PWA or browser from Express on any remote/LAN IP (not capacitor)
-  if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    return `${protocol}//${hostname}${port ? `:${port}` : ''}`;
-  }
-
-  // 4. Inside native Android Capacitor APK, window.location is 'https://localhost' or 'capacitor://localhost'.
-  // We MUST point to the host machine's Wi-Fi IP address so the APK connects immediately to the match!
-  return config.defaultServerUrl || 'http://192.168.0.101:3001';
+  // 2. Default to live production cloud backend for all devices (.APK and Web)
+  return PRODUCTION_URL;
 };
 
 export const socket = io(getSavedServerUrl(), {

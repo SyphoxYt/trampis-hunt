@@ -111,31 +111,29 @@ export default function Lobby({
         </button>
       </div>
 
-      {/* Main Room Card with Logo */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-
+      {/* Main Room Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm relative">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-3">
             <img
               src="/logo.jpg"
               alt="Trampis Hunt Logo"
-              className="w-14 h-14 rounded-2xl border-2 border-cyan-500/40 shadow-lg object-cover"
+              className="w-13 h-13 rounded-2xl border border-slate-700 shadow-md object-cover"
             />
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
-                  SQUAD LOBBY
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700">
+                  LOBBY
                 </span>
                 <span className="text-xs text-slate-400 font-mono font-semibold">
-                  {players.length} Operative{players.length !== 1 ? 's' : ''}
+                  {players.length} Player{players.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <h1 className="text-2xl font-serif font-black tracking-tight text-white mt-1">
+              <h1 className="text-xl font-bold tracking-tight text-white mt-1">
                 Trampis Hunt
               </h1>
-              <p className="text-[11px] text-slate-400">
-                {durationMinutes >= 60 ? `${durationMinutes / 60}h` : `${durationMinutes}m`} Hunt • {pinIntervalMinutes}m Ping Drops
+              <p className="text-xs text-slate-400">
+                {durationMinutes >= 60 ? `${durationMinutes / 60}h` : `${durationMinutes}m`} Match • {pinIntervalMinutes}m Ping Drops
               </p>
             </div>
           </div>
@@ -143,29 +141,29 @@ export default function Lobby({
           {/* Quick QR Invite Button */}
           <button
             onClick={() => setShowQrModal(true)}
-            className="p-2.5 bg-slate-800 hover:bg-slate-700/80 rounded-2xl transition border border-slate-700 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-200 active:scale-95"
+            className="p-2.5 bg-slate-800 hover:bg-slate-750 rounded-2xl transition border border-slate-700 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-200 active:scale-95 cursor-pointer"
             title="Scan to Join"
           >
             <div className="p-1 bg-white rounded-lg">
-              <QRCodeSVG value={joinUrl} size={38} />
+              <QRCodeSVG value={joinUrl} size={36} />
             </div>
             <span>Invite</span>
           </button>
         </div>
 
         {/* Room Code Display */}
-        <div className="mt-4 p-3 bg-slate-950/80 rounded-2xl border border-slate-800 flex items-center justify-between">
+        <div className="mt-4 p-3.5 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between">
           <div>
             <div className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider">
               ROOM CODE
             </div>
-            <div className="text-2xl font-mono font-black tracking-widest text-cyan-400">
+            <div className="text-2xl font-mono font-black tracking-widest text-emerald-400">
               {room.code}
             </div>
           </div>
           <button
             onClick={copyCode}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition active:scale-95 cursor-pointer"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             <span>{copied ? 'Copied' : 'Share Code'}</span>
@@ -490,9 +488,9 @@ export default function Lobby({
 
           <button
             onClick={handleStartClick}
-            className={`w-full py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-xl transition-all ${
+            className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
               canStart
-                ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 cursor-pointer active:scale-98'
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer active:scale-98'
                 : 'bg-slate-800 text-slate-400 hover:bg-slate-750 cursor-pointer border border-slate-700'
             }`}
           >
@@ -501,9 +499,9 @@ export default function Lobby({
           </button>
         </div>
       ) : (
-        <div className="text-center py-3.5 px-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center justify-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-          <span>Awaiting Host to launch the hunt...</span>
+        <div className="text-center py-3.5 px-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 flex items-center justify-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <span>Awaiting host to launch the hunt...</span>
         </div>
       )}
       </div>
