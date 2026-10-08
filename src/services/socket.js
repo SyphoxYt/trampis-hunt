@@ -1,7 +1,5 @@
 import { io } from 'socket.io-client';
 
-import config from '../config.json';
-
 export const getSavedServerUrl = () => {
   const PRODUCTION_URL = 'https://trampis-hunt.onrender.com';
   if (typeof window === 'undefined') return PRODUCTION_URL;

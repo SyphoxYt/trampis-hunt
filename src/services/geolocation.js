@@ -5,7 +5,8 @@ import { Geolocation } from '@capacitor/geolocation';
  */
 
 export function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 0;
+  if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) return 0;
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
@@ -27,7 +28,7 @@ export function formatDistance(meters) {
 }
 
 export function calculateBearing(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return { deg: 0, cardinal: 'N' };
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return { deg: 0, cardinal: 'N' };
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;

@@ -114,31 +114,36 @@ export default function App() {
 
     // Universal Ability Broadcast received by ALL PLAYERS on BOTH TEAMS!
     const onUniversalAbilityAlert = (alertData) => {
-      const myRole = room?.players?.[socket.id]?.role;
-      const isRunner = myRole === 'runner';
-      const desc = isRunner ? alertData.runnerDesc : alertData.hunterDesc;
+      // Use functional state access to avoid stale closure on room
+      setRoom((currentRoom) => {
+        const myRole = currentRoom?.players?.[socket.id]?.role;
+        const isRunner = myRole === 'runner';
+        const desc = isRunner ? alertData.runnerDesc : alertData.hunterDesc;
 
-      let bannerType = 'info';
-      if (alertData.ability === 'drone') {
-        sound.playDroneScan();
-        bannerType = isRunner ? 'danger' : 'success';
-      } else if (alertData.ability === 'tripwire') {
-        sound.playTripwireAlert();
-        bannerType = 'danger';
-      } else if (alertData.ability === 'jammer') {
-        sound.playJammerNoise();
-        bannerType = isRunner ? 'success' : 'warning';
-      } else if (alertData.ability === 'decoy') {
-        sound.playRadioChirp();
-        bannerType = 'info';
-      }
+        let bannerType = 'info';
+        if (alertData.ability === 'drone') {
+          sound.playDroneScan();
+          bannerType = isRunner ? 'danger' : 'success';
+        } else if (alertData.ability === 'tripwire') {
+          sound.playTripwireAlert();
+          bannerType = 'danger';
+        } else if (alertData.ability === 'jammer') {
+          sound.playJammerNoise();
+          bannerType = isRunner ? 'success' : 'warning';
+        } else if (alertData.ability === 'decoy') {
+          sound.playRadioChirp();
+          bannerType = 'info';
+        }
 
-      showAbilityBanner({
-        id: `ab_${Date.now()}`,
-        title: alertData.title,
-        desc: desc || alertData.title,
-        user: alertData.user,
-        type: bannerType
+        showAbilityBanner({
+          id: `ab_${Date.now()}`,
+          title: alertData.title,
+          desc: desc || alertData.title,
+          user: alertData.user,
+          type: bannerType
+        });
+
+        return currentRoom; // don't mutate, just read
       });
     };
 
@@ -201,7 +206,38 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const joinCode = urlParams.get('join');
     if (joinCode) {
-      setRoomCodeInput(joinCode.toUpperCase());
+      const code = joinCode.trim().toUpperCase();
+      setRoomCodeInput(code);
+      // Clean URL so refresh doesn't re-join
+      try { window.history.replaceState({}, '', window.location.pathname); } catch(e) {}
+      // Auto-join once socket connects
+      const tryAutoJoin = () => {
+        if (socket.connected) {
+          sound.init();
+          const name = localStorage.getItem('trampis_player_name') || `Operative_${Math.floor(100 + Math.random() * 900)}`;
+          socket.emit('join_room', { roomCode: code, playerName: name }, (res) => {
+            if (res?.success) {
+              setRoom(res.room);
+              setPlayerId(res.playerId);
+              localStorage.setItem('trampis_active_room', res.room.code);
+            }
+          });
+        } else {
+          // Wait for connection then join
+          socket.once('connect', () => {
+            const name = localStorage.getItem('trampis_player_name') || `Operative_${Math.floor(100 + Math.random() * 900)}`;
+            socket.emit('join_room', { roomCode: code, playerName: name }, (res) => {
+              if (res?.success) {
+                setRoom(res.room);
+                setPlayerId(res.playerId);
+                localStorage.setItem('trampis_active_room', res.room.code);
+              }
+            });
+          });
+        }
+      };
+      // Small delay to let component mount
+      setTimeout(tryAutoJoin, 500);
     }
 
     return () => {
@@ -216,15 +252,21 @@ export default function App() {
       socket.off('game_ended', onGameEnded);
       socket.off('hunter_location_updated', onHunterLocationUpdated);
       socket.off('game_error', onGameError);
+      socket.off('quick_comm_received', onQuickCommReceived);
     };
-  }, [room]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- all handlers use functional state, no stale closures
 
-  // GPS Tracking Loop
+  // GPS Tracking Loop — start once, throttle server updates
   useEffect(() => {
+    let lastEmitTime = 0;
+    const THROTTLE_MS = 2000; // Don't flood server — max 1 update per 2s
+
     locationTracker.start(
       (loc) => {
         setUserLocation(loc);
-        if (room && socket.connected) {
+        const now = Date.now();
+        if (socket.connected && now - lastEmitTime >= THROTTLE_MS) {
+          lastEmitTime = now;
           socket.emit('update_location', loc);
         }
       },
@@ -234,7 +276,7 @@ export default function App() {
     );
 
     return () => locationTracker.stop();
-  }, [room]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handlers
   const handleCreateRoom = () => {
@@ -337,10 +379,15 @@ export default function App() {
     socket.emit('send_quick_comm', { text });
   };
 
+  const handleResetGame = () => {
+    socket.emit('reset_game');
+  };
+
   const handleTestAudio = () => {
     sound.init();
     sound.playSonarPing();
-    showToast('🔊 AUDIO TEST: Sonar alert ping verified!');
+    setErrorMessage('🔊 Audio verified!');
+    setTimeout(() => setErrorMessage(''), 2500);
   };
 
   const currentUser = room?.players?.[playerId] || {

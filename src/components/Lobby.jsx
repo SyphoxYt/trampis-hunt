@@ -45,9 +45,14 @@ export default function Lobby({
   const durationMinutes = room.settings?.gameDurationMinutes || 60;
   const pinIntervalMinutes = room.settings?.pinIntervalMinutes || 10;
 
-  const joinUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}?join=${room.code}`
-    : `http://${serverIp || 'localhost'}:3001?join=${room.code}`;
+  // Always use production URL for QR codes & share links so they work cross-play
+  // (on APK, window.location.origin is "capacitor://localhost" which is useless)
+  const PRODUCTION_URL = 'https://trampis-hunt.onrender.com';
+  const isLocalDev = typeof window !== 'undefined'
+    && window.location.hostname === 'localhost'
+    && window.location.port;
+  const baseUrl = isLocalDev ? window.location.origin : PRODUCTION_URL;
+  const joinUrl = `${baseUrl}?join=${room.code}`;
 
   const copyCode = () => {
     navigator.clipboard?.writeText(room.code);

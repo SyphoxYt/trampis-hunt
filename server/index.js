@@ -49,7 +49,8 @@ function getLocalIpAddress() {
 }
 
 function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
-  if (!lat1 || !lon1 || !lat2 || !lon2) return 999999;
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return 999999;
+  if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) return 999999;
   const R = 6371e3; // Earth radius in meters
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
@@ -379,7 +380,7 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true });
   });
 
-  // Player Location Update
+  // Player Location Update (rate-limited: max 1 per second per player)
   socket.on('update_location', (location) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
@@ -388,9 +389,18 @@ io.on('connection', (socket) => {
     const player = room.players[socket.id];
     if (!player) return;
 
+    // Server-side rate limit: ignore updates within 1s of last one
+    const now = Date.now();
+    if (player._lastLocUpdate && now - player._lastLocUpdate < 1000) return;
+    player._lastLocUpdate = now;
+
+    // Reject obviously invalid coordinates
+    if (location == null || typeof location.lat !== 'number' || typeof location.lng !== 'number') return;
+    if (location.lat < -90 || location.lat > 90 || location.lng < -180 || location.lng > 180) return;
+
     player.currentLocation = {
       ...location,
-      updatedAt: Date.now()
+      updatedAt: now
     };
 
     // If hunter: broadcast to fellow hunters in real-time
