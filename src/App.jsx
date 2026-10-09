@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import socket, { getSavedServerUrl, reconnectToServer } from './services/socket';
 import { locationTracker } from './services/geolocation';
 import { sound } from './services/sound';
@@ -7,7 +7,9 @@ import RunnerView from './components/RunnerView';
 import HunterView from './components/HunterView';
 import GameOverView from './components/GameOverView';
 import RulesModal from './components/RulesModal';
-import CareerStatsModal from './components/CareerStatsModal';
+import AvatarPickerModal from './components/AvatarPickerModal';
+import MatchHistoryModal from './components/MatchHistoryModal';
+import AvatarDisplay from './components/AvatarDisplay';
 import {
   Moon,
   Sun,
@@ -19,7 +21,9 @@ import {
   AlertTriangle,
   Radio,
   Server,
-  Trophy
+  Trophy,
+  History,
+  Camera
 } from 'lucide-react';
 
 export default function App() {
@@ -32,7 +36,8 @@ export default function App() {
   const [playerAvatar, setPlayerAvatar] = useState(() => {
     return localStorage.getItem('trampis_player_avatar') || '⚡';
   });
-  const [showCareerStats, setShowCareerStats] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showMatchHistory, setShowMatchHistory] = useState(false);
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [room, setRoom] = useState(null);
   const [playerId, setPlayerId] = useState(null);
@@ -47,6 +52,23 @@ export default function App() {
   const [serverIp, setServerIp] = useState('');
   const [showServerModal, setShowServerModal] = useState(false);
   const [customServerUrl, setCustomServerUrl] = useState(() => getSavedServerUrl());
+
+  const lastSpottedVibrateRef = useRef(0);
+
+  // Mobile AudioContext auto-unlock on first user interaction
+  useEffect(() => {
+    const unlockAudio = () => {
+      sound.init();
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('pointerdown', unlockAudio, { passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
 
   // Active Tactical Ability Banner displayed to everyone on both teams
   const [activeAbilityBanner, setActiveAbilityBanner] = useState(null);
@@ -230,7 +252,11 @@ export default function App() {
     };
 
     const onRunnerSpottedLive = ({ runnerId, runnerName, location, distance }) => {
-      sound.vibrateSpotted();
+      const now = Date.now();
+      if (now - lastSpottedVibrateRef.current >= 8000) {
+        lastSpottedVibrateRef.current = now;
+        sound.vibrateSpotted();
+      }
       setSpottedRunners((prev) => {
         const filtered = prev.filter((r) => r.runnerId !== runnerId);
         return [...filtered, { runnerId, runnerName, location, distance }];
@@ -414,12 +440,16 @@ export default function App() {
   const handleLeaveRoom = () => {
     localStorage.removeItem('trampis_active_room');
     localStorage.removeItem('trampis_session_token');
+    setTeammateLocations([]);
+    setSpottedRunners([]);
     socket.emit('leave_room', () => {
       setRoom(null);
     });
   };
 
   const handleSetRole = (role) => {
+    setTeammateLocations([]);
+    setSpottedRunners([]);
     socket.emit('set_role', { role, targetPlayerId: playerId });
   };
 
@@ -490,6 +520,8 @@ export default function App() {
   };
 
   const handleResetGame = () => {
+    setTeammateLocations([]);
+    setSpottedRunners([]);
     socket.emit('reset_game');
   };
 
@@ -547,21 +579,37 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Career Stats & Customization */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Operative Photo & Marker Button */}
           <button
-            onClick={() => setShowCareerStats(true)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold transition active:scale-95"
-            title="Career Stats & Avatar"
+            onClick={() => setShowAvatarPicker(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
+            title="My Marker & Photo Avatar"
           >
-            <Trophy className="w-3.5 h-3.5" />
-            <span className="text-sm leading-none">{playerAvatar}</span>
+            <AvatarDisplay
+              avatar={playerAvatar}
+              name={playerName}
+              color={playerColor}
+              size="xs"
+              ring={false}
+            />
+            <span className="hidden sm:inline text-slate-200">Marker</span>
+          </button>
+
+          {/* Match History */}
+          <button
+            onClick={() => setShowMatchHistory(true)}
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold transition active:scale-95 flex items-center gap-1 cursor-pointer"
+            title="Match History & Records"
+          >
+            <History className="w-4 h-4" />
+            <span className="hidden sm:inline">History</span>
           </button>
 
           {/* Audio Test Button */}
           <button
             onClick={handleTestAudio}
-            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-700 transition active:scale-95"
+            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-700 transition active:scale-95 cursor-pointer"
             title="Test Phone Speaker / Unmute"
           >
             🔊
@@ -570,17 +618,17 @@ export default function App() {
           {/* Rules Button */}
           <button
             onClick={() => setShowRules(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 text-xs font-semibold transition active:scale-95"
+            className="p-1.5 sm:px-2.5 sm:py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 text-xs font-semibold transition active:scale-95 flex items-center gap-1 cursor-pointer"
             title="Field Rules"
           >
-            <BookOpen className="w-3.5 h-3.5" />
+            <BookOpen className="w-4 h-4" />
             <span className="hidden sm:inline">Rules</span>
           </button>
 
           {/* Server / Crossplay Config Button */}
           <button
             onClick={() => setShowServerModal(true)}
-            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-700 transition active:scale-95"
+            className="p-1.5 rounded-xl bg-slate-800 text-slate-400 hover:text-cyan-400 border border-slate-700 transition active:scale-95 cursor-pointer"
             title="Crossplay Server Settings"
           >
             <Server className="w-4 h-4" />
@@ -671,33 +719,61 @@ export default function App() {
                   type="text"
                   value={playerName}
                   onChange={(e) => handleNameChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      if (roomCodeInput.trim()) handleJoinRoom();
+                      else handleCreateRoom();
+                    }
+                  }}
                   placeholder="Enter codename"
                   className="px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
 
-              {/* Marker Identity & Career Stats Preview */}
+              {/* Tactical Marker & Photo Avatar Card */}
               <button
                 type="button"
-                onClick={() => setShowCareerStats(true)}
+                onClick={() => setShowAvatarPicker(true)}
                 className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition active:scale-95 cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm"
-                    style={{ backgroundColor: playerColor }}
-                  >
-                    {playerAvatar}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <AvatarDisplay
+                    avatar={playerAvatar}
+                    name={playerName}
+                    color={playerColor}
+                    size="md"
+                  />
                   <div className="text-left">
-                    <div className="text-[10px] font-mono uppercase font-bold text-slate-400">Tactical Marker</div>
-                    <div className="text-xs font-bold text-white">Customize Avatar & Color</div>
+                    <div className="text-[10px] font-mono uppercase font-bold text-slate-400 flex items-center gap-1">
+                      <Camera className="w-3 h-3 text-cyan-400" />
+                      <span>Tactical Marker & Photo</span>
+                    </div>
+                    <div className="text-xs font-bold text-white">Camera Photo • Custom Color</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400">
-                  <Trophy className="w-3.5 h-3.5" />
-                  <span>Stats</span>
+                <span className="text-[11px] font-bold text-cyan-400 bg-cyan-950/40 border border-cyan-800/40 px-2.5 py-1 rounded-xl">
+                  Customize
+                </span>
+              </button>
+
+              {/* Match History & Season Records Card */}
+              <button
+                type="button"
+                onClick={() => setShowMatchHistory(true)}
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition active:scale-95 cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-[10px] font-mono uppercase font-bold text-slate-400">Hunt Records</div>
+                    <div className="text-xs font-bold text-white">Match History & Season Stats</div>
+                  </div>
                 </div>
+                <span className="text-[11px] font-bold text-amber-400 bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 rounded-xl">
+                  View
+                </span>
               </button>
 
               {/* Host Game Button */}
@@ -722,6 +798,9 @@ export default function App() {
                   maxLength={5}
                   value={roomCodeInput}
                   onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleJoinRoom();
+                  }}
                   placeholder="5-LETTER CODE"
                   className="flex-1 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-950 text-sm font-mono font-bold tracking-widest uppercase text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-center"
                 />
@@ -774,7 +853,8 @@ export default function App() {
             onRandomizeTeams={handleRandomizeTeams}
             onAutoSplitUnassigned={handleAutoSplitUnassigned}
             onKickPlayer={handleKickPlayer}
-            onOpenCareerStats={() => setShowCareerStats(true)}
+            onOpenAvatarPicker={() => setShowAvatarPicker(true)}
+            onOpenMatchHistory={() => setShowMatchHistory(true)}
             onUpdateSettings={handleUpdateSettings}
             onStartGame={handleStartGame}
             onLeaveRoom={handleLeaveRoom}
@@ -813,7 +893,7 @@ export default function App() {
             playerId={playerId}
             onResetGame={handleResetGame}
             onLeaveRoom={handleLeaveRoom}
-            onOpenCareerStats={() => setShowCareerStats(true)}
+            onOpenMatchHistory={() => setShowMatchHistory(true)}
           />
         )}
       </main>
@@ -821,15 +901,22 @@ export default function App() {
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
 
-      {/* Career Stats & Customization Modal */}
-      <CareerStatsModal
-        isOpen={showCareerStats}
-        onClose={() => setShowCareerStats(false)}
+      {/* Avatar Picker Modal */}
+      <AvatarPickerModal
+        isOpen={showAvatarPicker}
+        onClose={() => setShowAvatarPicker(false)}
         playerName={playerName}
         playerColor={playerColor}
         playerAvatar={playerAvatar}
         onUpdateColor={handleColorChange}
         onUpdateAvatar={handleAvatarChange}
+      />
+
+      {/* Match History Modal */}
+      <MatchHistoryModal
+        isOpen={showMatchHistory}
+        onClose={() => setShowMatchHistory(false)}
+        playerName={playerName}
       />
 
       {/* Crossplay Server Settings Modal */}

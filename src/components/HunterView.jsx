@@ -19,6 +19,7 @@ import {
 import { calculateDistanceMeters, formatDistance, calculateBearing, getGpsQuality } from '../services/geolocation';
 import { sound } from '../services/sound';
 import { wakeLock } from '../services/wakeLock';
+import AvatarDisplay from './AvatarDisplay';
 
 export default function HunterView({
   room,
@@ -319,11 +320,19 @@ export default function HunterView({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3.5 h-3.5 rounded-full flex-shrink-0 ${
-                      isCaught ? 'bg-slate-500' : inRange ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
-                    }`}
-                  />
+                  <div className="relative">
+                    <AvatarDisplay
+                      avatar={r.avatar}
+                      name={r.name}
+                      color={r.color || '#EF4444'}
+                      size="sm"
+                    />
+                    <div
+                      className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border border-slate-900 ${
+                        isCaught ? 'bg-slate-500' : inRange ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
+                      }`}
+                    />
+                  </div>
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-white">{r.name}</span>

@@ -118,12 +118,17 @@ export default function TacticalMap({
     const themeColor = userColor || (userRole === 'runner' ? '#10B981' : '#2563EB');
     const angle = heading || 0;
 
+    const isUserPhoto = typeof userAvatar === 'string' && (userAvatar.startsWith('data:image/') || userAvatar.startsWith('http://') || userAvatar.startsWith('https://') || userAvatar.startsWith('blob:'));
+    const userCenterHtml = isUserPhoto
+      ? `<img src="${userAvatar}" class="w-6 h-6 rounded-full object-cover border border-white shadow" />`
+      : `<div class="w-2.5 h-2.5 bg-white rounded-full"></div>`;
+
     const iconHtml = `
-      <div class="relative flex items-center justify-center" style="transform: rotate(${angle}deg)">
-        <div class="absolute w-9 h-9 rounded-full opacity-40 animate-ping" style="background-color: ${themeColor}"></div>
-        <div class="absolute -top-3.5 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[9px]" style="border-bottom-color: ${themeColor}"></div>
-        <div class="w-5 h-5 rounded-full border-2 border-white shadow-xl flex items-center justify-center" style="background-color: ${themeColor}">
-          <div class="w-2 h-2 bg-white rounded-full"></div>
+      <div class="relative flex items-center justify-center">
+        <div class="absolute w-10 h-10 rounded-full opacity-40 animate-ping" style="background-color: ${themeColor}"></div>
+        <div class="absolute -top-3 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px]" style="border-bottom-color: ${themeColor}; transform: rotate(${angle}deg); transform-origin: 50% 20px;"></div>
+        <div class="w-7 h-7 rounded-full border-2 border-white shadow-xl flex items-center justify-center overflow-hidden" style="background-color: ${themeColor}">
+          ${userCenterHtml}
         </div>
       </div>
     `;
@@ -131,8 +136,8 @@ export default function TacticalMap({
     const customIcon = L.divIcon({
       html: iconHtml,
       className: 'user-pulse-marker',
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
+      iconSize: [40, 40],
+      iconAnchor: [20, 20]
     });
 
     if (markersRef.current.userMarker) {
@@ -154,7 +159,7 @@ export default function TacticalMap({
         fillOpacity: 0.12
       }).addTo(map);
     }
-  }, [userLocation, autoFollow, userRole, userColor]);
+  }, [userLocation, autoFollow, userRole, userColor, userAvatar]);
 
   // Update Pins (Runner Dropped Radar Pins - Displays Exact Runner Name & Color)
   useEffect(() => {
@@ -189,6 +194,11 @@ export default function TacticalMap({
         badgeTitle = `Drone: ${runnerName}`;
       }
 
+      const isPinPhoto = typeof badgeIcon === 'string' && (badgeIcon.startsWith('data:image/') || badgeIcon.startsWith('http://') || badgeIcon.startsWith('https://') || badgeIcon.startsWith('blob:'));
+      const badgeIconHtml = isPinPhoto
+        ? `<img src="${badgeIcon}" class="w-4 h-4 rounded-full object-cover border border-white inline-block flex-shrink-0" />`
+        : `<span>${badgeIcon}</span>`;
+
       const timeText = minutesAgo === 0 ? 'NOW' : `${minutesAgo}m ago`;
 
       const pinHtml = `
@@ -196,7 +206,10 @@ export default function TacticalMap({
           ${isLatest ? `<div class="absolute -top-1 w-10 h-10 rounded-full opacity-60 animate-ping" style="background-color: ${pinColor}"></div>` : ''}
           <div class="px-2.5 py-1 rounded-full text-[11px] font-mono font-black text-white shadow-2xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap"
                style="background-color: ${pinColor}">
-            <span>${badgeIcon} ${badgeTitle}</span>
+            <div class="flex items-center gap-1">
+              ${badgeIconHtml}
+              <span>${badgeTitle}</span>
+            </div>
             <span class="opacity-80 text-[9px] bg-black/40 px-1.5 py-0.2 rounded-full font-bold">• ${timeText}</span>
           </div>
           <div class="w-3.5 h-3.5 rotate-45 -mt-2 border-r-2 border-b-2 border-white shadow-md" style="background-color: ${pinColor}"></div>
@@ -251,14 +264,19 @@ export default function TacticalMap({
       const teammateColor = teammate.color || (isRunnerRole ? '#10B981' : '#2563EB');
       const teammateAvatar = teammate.avatar || (isRunnerRole ? '🏃' : '🚔');
 
+      const isTeammatePhoto = typeof teammateAvatar === 'string' && (teammateAvatar.startsWith('data:image/') || teammateAvatar.startsWith('http://') || teammateAvatar.startsWith('https://') || teammateAvatar.startsWith('blob:'));
+      const teammateAvatarHtml = isTeammatePhoto
+        ? `<img src="${teammateAvatar}" class="w-4 h-4 rounded-full object-cover border border-white inline-block flex-shrink-0" />`
+        : `<span>${teammateAvatar}</span>`;
+
       const teammateHtml = `
         <div class="flex flex-col items-center">
-          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white shadow-lg border border-white whitespace-nowrap flex items-center gap-1"
+          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white shadow-lg border border-white whitespace-nowrap flex items-center gap-1.5"
                style="background-color: ${teammateColor}">
-            <span>${teammateAvatar}</span>
+            ${teammateAvatarHtml}
             <span>${teammate.name || (isRunnerRole ? 'Runner' : 'Hunter')}</span>
           </div>
-          <div class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-md"
+          <div class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-md mt-0.5"
                style="background-color: ${teammateColor}"></div>
         </div>
       `;
@@ -266,8 +284,8 @@ export default function TacticalMap({
       const icon = L.divIcon({
         html: teammateHtml,
         className: 'teammate-marker',
-        iconSize: [85, 32],
-        iconAnchor: [42, 26]
+        iconSize: [95, 36],
+        iconAnchor: [47, 30]
       });
 
       const m = L.marker([teammate.location.lat, teammate.location.lng], { icon }).addTo(map);

@@ -10,12 +10,14 @@ import {
   History
 } from 'lucide-react';
 import { sound } from '../services/sound';
+import AvatarDisplay from './AvatarDisplay';
 
 export default function GameOverView({
   room,
   playerId,
   onResetGame,
   onLeaveRoom,
+  onOpenMatchHistory,
   onOpenCareerStats
 }) {
   const isHost = room?.hostId === playerId;
@@ -88,19 +90,19 @@ export default function GameOverView({
         <div className="flex items-center justify-between">
           <button
             onClick={onLeaveRoom}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Exit to Menu</span>
           </button>
 
-          {onOpenCareerStats && (
+          {(onOpenMatchHistory || onOpenCareerStats) && (
             <button
-              onClick={onOpenCareerStats}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-cyan-400 hover:text-cyan-300 border border-slate-700 text-xs font-semibold transition active:scale-95"
+              onClick={onOpenMatchHistory || onOpenCareerStats}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 text-cyan-400 hover:text-cyan-300 border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
             >
               <History className="w-4 h-4" />
-              <span>Season Stats</span>
+              <span>Match History</span>
             </button>
           )}
         </div>
@@ -155,12 +157,16 @@ export default function GameOverView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {topEscapeArtist && (
               <div className="p-3.5 bg-slate-900 border border-amber-500/30 rounded-2xl flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <Crown className="w-5 h-5" />
-                </div>
+                <AvatarDisplay
+                  avatar={topEscapeArtist.avatar}
+                  name={topEscapeArtist.name}
+                  color={topEscapeArtist.color || '#10B981'}
+                  size="md"
+                />
                 <div>
-                  <div className="text-[10px] font-mono font-bold uppercase text-amber-400">
-                    TOP ESCAPE ARTIST
+                  <div className="text-[10px] font-mono font-bold uppercase text-amber-400 flex items-center gap-1">
+                    <Crown className="w-3.5 h-3.5 inline" />
+                    <span>TOP ESCAPE ARTIST</span>
                   </div>
                   <div className="text-sm font-bold text-white flex items-center gap-1.5">
                     <span>{topEscapeArtist.name}</span>
@@ -174,12 +180,16 @@ export default function GameOverView({
 
             {topHunter && topHunter.tagsCount > 0 && (
               <div className="p-3.5 bg-slate-900 border border-rose-500/30 rounded-2xl flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                  <Target className="w-5 h-5" />
-                </div>
+                <AvatarDisplay
+                  avatar={topHunter.avatar}
+                  name={topHunter.name}
+                  color={topHunter.color || '#3B82F6'}
+                  size="md"
+                />
                 <div>
-                  <div className="text-[10px] font-mono font-bold uppercase text-rose-400">
-                    DEADLIEST HUNTER
+                  <div className="text-[10px] font-mono font-bold uppercase text-rose-400 flex items-center gap-1">
+                    <Target className="w-3.5 h-3.5 inline" />
+                    <span>DEADLIEST HUNTER</span>
                   </div>
                   <div className="text-sm font-bold text-white flex items-center gap-1.5">
                     <span>{topHunter.name}</span>
@@ -211,9 +221,11 @@ export default function GameOverView({
               >
                 <div className="flex items-center gap-2.5">
                   <span className="text-xs font-mono font-bold text-slate-500 w-4">#{idx + 1}</span>
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: r.color || '#10B981' }}
+                  <AvatarDisplay
+                    avatar={r.avatar}
+                    name={r.name}
+                    color={r.color || '#10B981'}
+                    size="xs"
                   />
                   <div>
                     <div className="font-semibold text-white flex items-center gap-1.5">

@@ -18,9 +18,12 @@ import {
   UserCheck,
   UserX,
   Palette,
-  Trophy
+  Trophy,
+  Camera,
+  History
 } from 'lucide-react';
 import { sound } from '../services/sound';
+import AvatarDisplay from './AvatarDisplay';
 
 export default function Lobby({
   room,
@@ -33,6 +36,8 @@ export default function Lobby({
   onOpenRules,
   onKickPlayer,
   onAutoSplitUnassigned,
+  onOpenAvatarPicker,
+  onOpenMatchHistory,
   onOpenCareerStats,
   serverIp
 }) {
@@ -104,23 +109,47 @@ export default function Lobby({
     <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain animate-fadeIn">
       <div className="max-w-xl mx-auto flex flex-col gap-4 p-4 sm:p-6 pb-36">
         {/* Top Navigation */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={onLeaveRoom}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition active:scale-95"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Exit to Menu</span>
-        </button>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <button
+            onClick={onLeaveRoom}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Exit</span>
+          </button>
 
-        <button
-          onClick={onOpenRules}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 text-cyan-400 border border-cyan-800/60 text-xs font-semibold transition active:scale-95 shadow-sm"
-        >
-          <BookOpen className="w-4 h-4" />
-          <span>Field Rules</span>
-        </button>
-      </div>
+          <div className="flex items-center gap-2">
+            {onOpenAvatarPicker && (
+              <button
+                onClick={onOpenAvatarPicker}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
+                title="My Photo Avatar & Marker"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                <span>My Marker</span>
+              </button>
+            )}
+
+            {(onOpenMatchHistory || onOpenCareerStats) && (
+              <button
+                onClick={onOpenMatchHistory || onOpenCareerStats}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold transition active:scale-95 cursor-pointer"
+                title="Match History"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">History</span>
+              </button>
+            )}
+
+            <button
+              onClick={onOpenRules}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-950/40 hover:bg-cyan-900/40 text-cyan-400 border border-cyan-800/60 text-xs font-semibold transition active:scale-95 shadow-sm cursor-pointer"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Rules</span>
+            </button>
+          </div>
+        </div>
 
       {/* Main Room Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-sm relative">
@@ -381,10 +410,11 @@ export default function Lobby({
                 className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{p.avatar || '🏃'}</span>
-                  <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: p.color || '#10B981' }}
+                  <AvatarDisplay
+                    avatar={p.avatar}
+                    name={p.name}
+                    color={p.color || '#10B981'}
+                    size="xs"
                   />
                   <span className="font-semibold text-slate-200">
                     {p.name} {p.id === playerId ? '(You)' : ''}
@@ -447,10 +477,11 @@ export default function Lobby({
                 className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs"
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{p.avatar || '🚔'}</span>
-                  <div
-                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: p.color || '#3B82F6' }}
+                  <AvatarDisplay
+                    avatar={p.avatar}
+                    name={p.name}
+                    color={p.color || '#3B82F6'}
+                    size="xs"
                   />
                   <span className="font-semibold text-slate-200">
                     {p.name} {p.id === playerId ? '(You)' : ''}
