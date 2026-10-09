@@ -9,7 +9,6 @@ import GameOverView from './components/GameOverView';
 import RulesModal from './components/RulesModal';
 import CareerStatsModal from './components/CareerStatsModal';
 import {
-  Compass,
   Moon,
   Sun,
   BookOpen,
@@ -17,16 +16,10 @@ import {
   WifiOff,
   Sparkles,
   ArrowRight,
-  ShieldAlert,
   AlertTriangle,
   Radio,
-  Zap,
-  Plane,
-  Radar,
-  Settings,
   Server,
-  Trophy,
-  Palette
+  Trophy
 } from 'lucide-react';
 
 export default function App() {
@@ -79,12 +72,15 @@ export default function App() {
       // Reconnect to active room if phone woke up from background
       const savedCode = localStorage.getItem('trampis_active_room');
       const savedName = localStorage.getItem('trampis_player_name');
+      const savedToken = localStorage.getItem('trampis_session_token');
       if (savedCode) {
-        socket.emit('reconnect_room', { roomCode: savedCode, playerId: socket.id, playerName: savedName }, (res) => {
+        socket.emit('reconnect_room', { roomCode: savedCode, playerId: socket.id, playerName: savedName, sessionToken: savedToken }, (res) => {
           if (res?.success) {
             setRoom(res.room);
+            if (res.sessionToken) localStorage.setItem('trampis_session_token', res.sessionToken);
           } else {
             localStorage.removeItem('trampis_active_room');
+            localStorage.removeItem('trampis_session_token');
           }
         });
       }
@@ -219,17 +215,17 @@ export default function App() {
       }
     };
 
-    const onHunterLocationUpdated = ({ hunterId, hunterName, location }) => {
+    const onHunterLocationUpdated = ({ hunterId, hunterName, location, color, avatar }) => {
       setTeammateLocations((prev) => {
         const filtered = prev.filter((t) => t.id !== hunterId);
-        return [...filtered, { id: hunterId, name: hunterName, location }];
+        return [...filtered, { id: hunterId, name: hunterName, location, color, avatar }];
       });
     };
 
-    const onRunnerLocationUpdated = ({ runnerId, runnerName, location }) => {
+    const onRunnerLocationUpdated = ({ runnerId, runnerName, location, color, avatar }) => {
       setTeammateLocations((prev) => {
         const filtered = prev.filter((t) => t.id !== runnerId);
-        return [...filtered, { id: runnerId, name: runnerName, location }];
+        return [...filtered, { id: runnerId, name: runnerName, location, color, avatar }];
       });
     };
 
@@ -251,11 +247,12 @@ export default function App() {
       setTimeout(() => setErrorMessage(''), 5000);
     };
 
-    const onKickedFromRoom = ({ reason }) => {
+    const onKickedFromRoom = ({ reason, message }) => {
       localStorage.removeItem('trampis_active_room');
+      localStorage.removeItem('trampis_session_token');
       setRoom(null);
       sound.playErrorBuzz();
-      setErrorMessage(reason || 'You were removed from the hunt room.');
+      setErrorMessage(reason || message || 'You were removed from the hunt room.');
       setTimeout(() => setErrorMessage(''), 5000);
     };
 
@@ -372,6 +369,7 @@ export default function App() {
         setRoom(res.room);
         setPlayerId(res.playerId);
         localStorage.setItem('trampis_active_room', res.room.code);
+        if (res.sessionToken) localStorage.setItem('trampis_session_token', res.sessionToken);
       } else {
         setErrorMessage(res?.message || 'Failed to create room. Please try again.');
       }
@@ -403,6 +401,7 @@ export default function App() {
           setRoom(res.room);
           setPlayerId(res.playerId);
           localStorage.setItem('trampis_active_room', res.room.code);
+          if (res.sessionToken) localStorage.setItem('trampis_session_token', res.sessionToken);
         } else {
           sound.playErrorBuzz();
           setErrorMessage(res?.message || 'Room not found. Check code and try again.');
@@ -414,6 +413,7 @@ export default function App() {
 
   const handleLeaveRoom = () => {
     localStorage.removeItem('trampis_active_room');
+    localStorage.removeItem('trampis_session_token');
     socket.emit('leave_room', () => {
       setRoom(null);
     });
@@ -518,7 +518,7 @@ export default function App() {
   return (
     <div className={`h-full w-full flex flex-col overflow-hidden ${isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} font-sans antialiased`}>
       {/* Universal Tactical Header Bar */}
-      <header className="h-14 px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-40">
+      <header className="safe-header px-4 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-40">
         <div className="flex items-center gap-2.5">
           <img
             src="/logo.jpg"
@@ -599,7 +599,7 @@ export default function App() {
 
       {/* Universal Tactical Ability Announcement Banner (Visible to Both Teams!) */}
       {activeAbilityBanner && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-fadeIn flex items-start gap-3 transition-all bg-slate-900/95 border-cyan-400/80 text-white">
+        <div className="fixed safe-banner-top left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md border animate-fadeIn flex items-start gap-3 transition-all bg-slate-900/95 border-cyan-400/80 text-white">
           <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 flex-shrink-0 mt-0.5">
             <Radio className="w-5 h-5 animate-pulse" />
           </div>
@@ -616,7 +616,7 @@ export default function App() {
 
       {/* Global Error Banner */}
       {errorMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-rose-600 text-white rounded-2xl text-xs font-bold shadow-2xl border border-rose-400/40 animate-fadeIn flex items-center gap-2">
+        <div className="fixed safe-banner-top left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-rose-600 text-white rounded-2xl text-xs font-bold shadow-2xl border border-rose-400/40 animate-fadeIn flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span>{errorMessage}</span>
         </div>
@@ -627,7 +627,7 @@ export default function App() {
         {!room ? (
           /* Staging / Welcome / Join Screen */
           <div className="w-full h-full touch-scroll overflow-y-auto overscroll-contain">
-            <div className="flex flex-col items-center justify-start sm:justify-center p-4 sm:p-6 max-w-md mx-auto w-full min-h-full py-6 pb-28">
+            <div className="flex flex-col items-center justify-start sm:justify-center p-4 sm:p-6 max-w-md mx-auto w-full min-h-full py-6 safe-bottom-space">
               <div className="w-full bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-4 sm:gap-5 my-auto">
               {/* Logo & Title */}
               <div className="flex flex-col items-center text-center">
@@ -680,7 +680,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowCareerStats(true)}
-                className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition active:scale-98 cursor-pointer"
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition active:scale-95 cursor-pointer"
               >
                 <div className="flex items-center gap-2.5">
                   <span

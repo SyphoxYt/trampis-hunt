@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --header-height: calc(3.5rem + var(--sat));
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -23,7 +31,21 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    padding-bottom: var(--sab);
   }
+}
+
+.safe-header {
+  padding-top: var(--sat);
+  height: var(--header-height);
+}
+
+.safe-banner-top {
+  top: calc(var(--header-height) + 0.5rem);
+}
+
+.safe-bottom-space {
+  padding-bottom: calc(var(--sab) + 5rem);
 }
 
 /* Smooth mobile touch scrolling */
@@ -41,6 +63,7 @@
   height: 100%;
   font-family: inherit;
   background-color: #242424;
+  touch-action: none;
 }
 
 .user-pulse-marker,

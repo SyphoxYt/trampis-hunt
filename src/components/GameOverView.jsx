@@ -2,15 +2,12 @@ import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Trophy,
-  Footprints,
   RotateCcw,
   ShieldCheck,
   ArrowLeft,
   Crown,
   Target,
-  Clock,
-  History,
-  Zap
+  History
 } from 'lucide-react';
 import { sound } from '../services/sound';
 
@@ -28,7 +25,10 @@ export default function GameOverView({
   const caughtRunners = runners.filter((p) => p.isCaught);
   const survivedRunners = runners.filter((p) => !p.isCaught);
 
-  const didRunnersWin = survivedRunners.length > 0;
+  const serverWinner = room?.gameState?.winner;
+  const wasEndedByHost = serverWinner === 'ended_by_host';
+  const didRunnersWin = serverWinner === 'runners_escaped' || (!wasEndedByHost && survivedRunners.length > 0 && serverWinner !== 'hunters_win');
+  const didHuntersWin = serverWinner === 'hunters_win' || (!wasEndedByHost && survivedRunners.length === 0);
 
   const startedAt = room?.gameState?.startedAt || Date.now();
   const endedAt = room?.gameState?.endedAt || Date.now();
@@ -112,11 +112,17 @@ export default function GameOverView({
           </div>
 
           <h2 className="text-2xl font-serif font-black text-white mt-3">
-            {didRunnersWin ? 'RUNNERS EVADED & WON!' : 'HUNTERS DOMINATED!'}
+            {wasEndedByHost
+              ? 'HUNT ENDED BY HOST'
+              : didRunnersWin
+              ? 'RUNNERS EVADED & WON!'
+              : 'HUNTERS DOMINATED!'}
           </h2>
 
           <p className="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
-            {didRunnersWin
+            {wasEndedByHost
+              ? `The host ended the hunt early. ${survivedRunners.length} runner(s) remained uncaught.`
+              : didRunnersWin
               ? `${survivedRunners.length} runner(s) remained free when time expired!`
               : 'Every runner was tracked down and captured!'}
           </p>

@@ -8,12 +8,9 @@ export const getSavedServerUrl = () => {
   const custom = localStorage.getItem('trampis_server_url');
   if (custom && custom.trim()) {
     const trimmed = custom.trim().replace(/\/+$/, '');
-    // Ignore obsolete LAN/localhost configs to prevent cross-play failure
-    if (!trimmed.includes('192.168.') && !trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    // Clean stale local IP from storage
-    localStorage.removeItem('trampis_server_url');
   }
 
   // 2. Default to live production cloud backend for all devices (.APK and Web)

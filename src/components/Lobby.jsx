@@ -152,7 +152,7 @@ export default function Lobby({
           {/* Quick QR Invite Button */}
           <button
             onClick={() => setShowQrModal(true)}
-            className="p-2.5 bg-slate-800 hover:bg-slate-750 rounded-2xl transition border border-slate-700 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-200 active:scale-95 cursor-pointer"
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-2xl transition border border-slate-700 flex flex-col items-center gap-1 text-[11px] font-semibold text-slate-200 active:scale-95 cursor-pointer"
             title="Scan to Join"
           >
             <div className="p-1 bg-white rounded-lg">
@@ -531,8 +531,8 @@ export default function Lobby({
             onClick={handleStartClick}
             className={`w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
               canStart
-                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer active:scale-98'
-                : 'bg-slate-800 text-slate-400 hover:bg-slate-750 cursor-pointer border border-slate-700'
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 cursor-pointer active:scale-95'
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700 cursor-pointer border border-slate-700'
             }`}
           >
             <Play className="w-4 h-4 fill-current" />
@@ -549,7 +549,7 @@ export default function Lobby({
 
       {/* QR Code Invite Modal */}
       {showQrModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-800 shadow-2xl flex flex-col items-center text-center">
             <img
               src="/logo.jpg"

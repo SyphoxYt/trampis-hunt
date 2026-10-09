@@ -17,7 +17,7 @@ export default function RulesModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="bg-slate-900 rounded-3xl p-6 max-w-lg w-full border border-slate-800 shadow-2xl flex flex-col max-h-[90vh] touch-scroll overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -109,7 +109,7 @@ export default function RulesModal({ isOpen, onClose }) {
 
         <button
           onClick={onClose}
-          className="mt-5 w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 font-black text-xs transition active:scale-98 shadow-lg cursor-pointer"
+          className="mt-5 w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-slate-950 font-black text-xs transition active:scale-95 shadow-lg cursor-pointer"
         >
           READY FOR THE HUNT
         </button>

@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
   Trophy,
-  Award,
   History,
   Trash2,
   X,
-  Shield,
-  Target,
-  Clock,
-  User,
   Palette,
   Check
 } from 'lucide-react';
@@ -152,7 +147,7 @@ export default function CareerStatsModal({
                   onClick={() => onUpdateColor(col.hex)}
                   style={{ backgroundColor: col.hex }}
                   className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition active:scale-90 ${
-                    playerColor === col.hex ? 'ring-3 ring-white scale-110 shadow-lg' : 'opacity-70 hover:opacity-100'
+                    playerColor === col.hex ? 'ring-2 ring-white scale-110 shadow-lg' : 'opacity-70 hover:opacity-100'
                   }`}
                   title={col.name}
                 >

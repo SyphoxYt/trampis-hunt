@@ -201,7 +201,7 @@ export default function HunterView({
         />
       )}
 
-      <div className="max-w-xl mx-auto flex flex-col gap-3.5 p-4 sm:p-5 pb-28">
+      <div className="max-w-xl mx-auto flex flex-col gap-3.5 p-4 sm:p-5 safe-bottom-space">
         {/* Top Header Bar */}
         <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
@@ -410,7 +410,7 @@ export default function HunterView({
             disabled={droneScansLeft <= 0}
             className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
               droneScansLeft > 0
-                ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white active:scale-95 shadow-sm cursor-pointer'
                 : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
             }`}
           >
@@ -436,7 +436,7 @@ export default function HunterView({
             disabled={tripwiresLeft <= 0}
             className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
               tripwiresLeft > 0
-                ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white active:scale-95 shadow-sm cursor-pointer'
                 : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
             }`}
           >
@@ -476,7 +476,7 @@ export default function HunterView({
 
       {/* Tag Verification Modal */}
       {showTagModal && selectedRunner && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-800 shadow-2xl flex flex-col">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Crosshair className="w-5 h-5 text-rose-500" />

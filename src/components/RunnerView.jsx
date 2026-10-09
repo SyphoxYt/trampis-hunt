@@ -125,7 +125,7 @@ export default function RunnerView({
         />
       )}
 
-      <div className="max-w-xl mx-auto flex flex-col gap-3.5 p-4 sm:p-5 pb-28">
+      <div className="max-w-xl mx-auto flex flex-col gap-3.5 p-4 sm:p-5 safe-bottom-space">
         {/* Top Header Bar */}
         <div className="p-3.5 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-2.5">
@@ -254,7 +254,7 @@ export default function RunnerView({
               disabled={player.powerups.jammersLeft <= 0}
               className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
                 player.powerups.jammersLeft > 0
-                  ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                  ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white active:scale-95 shadow-sm cursor-pointer'
                   : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
               }`}
             >
@@ -280,7 +280,7 @@ export default function RunnerView({
               disabled={player.powerups.decoysLeft <= 0}
               className={`p-3.5 rounded-2xl border text-left flex items-center justify-between transition ${
                 player.powerups.decoysLeft > 0
-                  ? 'bg-slate-900 hover:bg-slate-850 border-slate-700 text-white active:scale-98 shadow-sm cursor-pointer'
+                  ? 'bg-slate-900 hover:bg-slate-800 border-slate-700 text-white active:scale-95 shadow-sm cursor-pointer'
                   : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-50'
               }`}
             >
@@ -304,7 +304,7 @@ export default function RunnerView({
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => setShowCodeModal(true)}
-                className="py-3 px-3 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold font-mono flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+                className="py-3 px-3 rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold font-mono flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
               >
                 <Key className="w-4 h-4 text-emerald-400" />
                 <span>Code: {player.catchCode}</span>
@@ -312,7 +312,7 @@ export default function RunnerView({
 
               <button
                 onClick={onSurrender}
-                className="py-3 px-3 rounded-2xl border border-rose-900/60 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-bold font-mono flex items-center justify-center gap-2 active:scale-98 transition cursor-pointer"
+                className="py-3 px-3 rounded-2xl border border-rose-900/60 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-bold font-mono flex items-center justify-center gap-2 active:scale-95 transition cursor-pointer"
               >
                 <Flag className="w-4 h-4 text-rose-400" />
                 <span>Surrender</span>
@@ -354,7 +354,7 @@ export default function RunnerView({
 
       {/* Catch Code Verification Modal */}
       {showCodeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-slate-900 rounded-3xl p-6 max-w-sm w-full border border-slate-800 shadow-2xl flex flex-col items-center text-center">
             <h3 className="text-base font-bold text-white">
               Runner Catch Verification Code

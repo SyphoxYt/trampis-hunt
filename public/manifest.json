@@ -5,13 +5,19 @@
     {
       "src": "/logo.jpg",
       "type": "image/jpeg",
-      "sizes": "192x192 512x512",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.jpg",
+      "type": "image/jpeg",
+      "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
   "start_url": "/",
-  "background_color": "#1C1917",
-  "theme_color": "#D97757",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "display": "standalone",
   "orientation": "portrait"
 }

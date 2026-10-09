@@ -32,6 +32,41 @@ function generateCatchCode() {
   return Math.floor(1000 + Math.random() * 9000).toString();
 }
 
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function generateUniqueRoomCode() {
+  let code = '';
+  do {
+    code = '';
+    for (let i = 0; i < 5; i++) {
+      code += CODE_CHARS.charAt(Math.floor(Math.random() * CODE_CHARS.length));
+    }
+  } while (rooms.has(code));
+  return code;
+}
+
+function generateSessionToken() {
+  return Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+}
+
+function addPinToHistory(room, pin) {
+  if (!room || !room.gameState) return;
+  room.gameState.pinHistory.push(pin);
+  if (room.gameState.pinHistory.length > 50) {
+    room.gameState.pinHistory = room.gameState.pinHistory.slice(-50);
+  }
+}
+
+function addLogEntry(room, text) {
+  if (!room || !room.gameState) return;
+  room.gameState.log.unshift({
+    timestamp: Date.now(),
+    text
+  });
+  if (room.gameState.log.length > 80) {
+    room.gameState.log = room.gameState.log.slice(0, 80);
+  }
+}
+
 function getLocalIpAddress() {
   const interfaces = os.networkInterfaces();
   const candidates = [];
@@ -88,7 +123,7 @@ io.on('connection', (socket) => {
 
   // Create Room
   socket.on('create_room', ({ playerName, playerColor, playerAvatar, settings }, callback) => {
-    const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const code = generateUniqueRoomCode();
     const defaultSettings = {
       pinIntervalMinutes: 10,
       gameDurationMinutes: 60,
@@ -98,6 +133,8 @@ io.on('connection', (socket) => {
       ...settings
     };
 
+    const sessionToken = generateSessionToken();
+
     const room = {
       code,
       hostId: socket.id,
@@ -106,6 +143,7 @@ io.on('connection', (socket) => {
       players: {
         [socket.id]: {
           id: socket.id,
+          sessionToken,
           name: playerName || 'Lead Operative',
           color: playerColor || '#06B6D4',
           avatar: playerAvatar || '🥷',
@@ -142,19 +180,21 @@ io.on('connection', (socket) => {
     socket.data.playerName = playerName;
 
     console.log(`[Room Created] ${code} by ${playerName} (${socket.id})`);
-    if (callback) callback({ success: true, room, playerId: socket.id });
+    if (callback) callback({ success: true, room, playerId: socket.id, sessionToken });
     io.to(code).emit('room_updated', room);
   });
 
   // Update Player Profile (Color & Avatar)
-  socket.on('update_profile', ({ color, avatar }) => {
+  socket.on('update_profile', (data = {}) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
     if (!room) return;
     const player = room.players[socket.id];
     if (player) {
-      if (color) player.color = color;
-      if (avatar) player.avatar = avatar;
+      const newColor = data.color || data.playerColor;
+      const newAvatar = data.avatar || data.playerAvatar;
+      if (newColor) player.color = newColor;
+      if (newAvatar) player.avatar = newAvatar;
       io.to(code).emit('room_updated', room);
     }
   });
@@ -195,8 +235,11 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const sessionToken = generateSessionToken();
+
     room.players[socket.id] = {
       id: socket.id,
+      sessionToken,
       name: trimmedName,
       color: playerColor || '#10B981',
       avatar: playerAvatar || '🥷',
@@ -220,7 +263,7 @@ io.on('connection', (socket) => {
     socket.data.playerName = playerName;
 
     console.log(`[Room Joined] ${code}: ${playerName} (${socket.id})`);
-    if (callback) callback({ success: true, room, playerId: socket.id });
+    if (callback) callback({ success: true, room, playerId: socket.id, sessionToken });
     io.to(code).emit('room_updated', room);
   });
 
@@ -246,13 +289,19 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true });
   });
 
-  // Assign / Change Role
+  // Assign / Change Role (Secured: host or self only)
   socket.on('set_role', ({ role, targetPlayerId }) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
     if (!room) return;
 
     const playerId = targetPlayerId || socket.id;
+    // Security check: Only the player themselves or the room host can change role
+    if (socket.id !== playerId && room.hostId !== socket.id) {
+      console.warn(`[Unauthorized Role Change] ${socket.id} attempted to change role of ${playerId}`);
+      return;
+    }
+
     if (room.players[playerId]) {
       room.players[playerId].role = role;
       io.to(code).emit('room_updated', room);
@@ -332,19 +381,29 @@ io.on('connection', (socket) => {
   });
 
   // Kick / Remove player (Host only)
-  socket.on('kick_player', ({ targetPlayerId }) => {
+  socket.on('kick_player', ({ targetPlayerId }, callback) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
-    if (!room || room.hostId !== socket.id) return;
-    if (targetPlayerId === socket.id) return;
+    if (!room || room.hostId !== socket.id) {
+      if (callback) callback({ success: false, message: 'Only host can kick players.' });
+      return;
+    }
+    if (targetPlayerId === socket.id) {
+      if (callback) callback({ success: false, message: 'Cannot kick yourself.' });
+      return;
+    }
 
     const target = room.players[targetPlayerId];
-    if (!target) return;
+    if (!target) {
+      if (callback) callback({ success: false, message: 'Player not found in room.' });
+      return;
+    }
 
     const wasActiveRunner = room.status === 'playing' && target.role === 'runner' && !target.isCaught;
     delete room.players[targetPlayerId];
 
     io.to(targetPlayerId).emit('kicked_from_room', {
+      reason: 'You were removed from the room by the host.',
       message: 'You were removed from the room by the host.'
     });
 
@@ -354,6 +413,8 @@ io.on('connection', (socket) => {
     });
 
     console.log(`[Player Kicked] Host removed ${target.name} (${targetPlayerId}) from Room ${code}`);
+
+    if (callback) callback({ success: true });
 
     // If game in progress and kicked runner was active, check if all runners are eliminated!
     if (wasActiveRunner) {
@@ -368,14 +429,21 @@ io.on('connection', (socket) => {
   });
 
   // End hunt early (Host only)
-  socket.on('end_hunt', () => {
+  socket.on('end_hunt', (callback) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
-    if (!room || room.hostId !== socket.id) return;
-    if (room.status !== 'playing') return;
+    if (!room || room.hostId !== socket.id) {
+      if (callback) callback({ success: false, message: 'Only host can end the hunt early.' });
+      return;
+    }
+    if (room.status !== 'playing') {
+      if (callback) callback({ success: false, message: 'No active hunt to end.' });
+      return;
+    }
 
     console.log(`[Hunt Ended by Host] Room ${code}`);
     endGame(code, 'ended_by_host', 'Hunt was ended early by the host.');
+    if (callback) callback({ success: true });
   });
 
   // Start Game with Robust Failsafes
@@ -465,6 +533,8 @@ io.on('connection', (socket) => {
           id: `pin_${Date.now()}_${runner.id}`,
           runnerId: runner.id,
           runnerName: runner.name,
+          runnerColor: runner.color,
+          runnerAvatar: runner.avatar,
           lat: runner.currentLocation.lat,
           lng: runner.currentLocation.lng,
           timestamp: now,
@@ -502,44 +572,44 @@ io.on('connection', (socket) => {
 
     const allPlayers = Object.values(room.players);
 
-    // 1. If Runner: broadcast live location to fellow runners!
-    if (player.role === 'runner') {
-      const fellowRunners = allPlayers.filter((p) => p.role === 'runner' && p.id !== socket.id);
+    // 1. If Runner: broadcast live location to fellow active runners ONLY if not caught!
+    if (player.role === 'runner' && !player.isCaught) {
+      const fellowRunners = allPlayers.filter((p) => p.role === 'runner' && p.id !== socket.id && !p.isCaught);
       fellowRunners.forEach((r) => {
         io.to(r.id).emit('runner_location_updated', {
           runnerId: socket.id,
           runnerName: player.name,
           location: player.currentLocation,
-          isCaught: player.isCaught
+          color: player.color,
+          avatar: player.avatar,
+          isCaught: false
         });
       });
 
       // Check distance to all hunters: if within 5m, hunter spots this runner live!
-      if (!player.isCaught) {
-        const hunters = allPlayers.filter((p) => p.role === 'hunter');
-        hunters.forEach((h) => {
-          if (h.currentLocation) {
-            const dist = calculateDistanceMeters(
-              player.currentLocation.lat,
-              player.currentLocation.lng,
-              h.currentLocation.lat,
-              h.currentLocation.lng
-            );
-            if (dist <= 5) {
-              io.to(h.id).emit('runner_spotted_live', {
-                runnerId: socket.id,
-                runnerName: player.name,
-                location: player.currentLocation,
-                distance: dist
-              });
-            } else {
-              io.to(h.id).emit('runner_lost_sight', {
-                runnerId: socket.id
-              });
-            }
+      const hunters = allPlayers.filter((p) => p.role === 'hunter');
+      hunters.forEach((h) => {
+        if (h.currentLocation) {
+          const dist = calculateDistanceMeters(
+            player.currentLocation.lat,
+            player.currentLocation.lng,
+            h.currentLocation.lat,
+            h.currentLocation.lng
+          );
+          if (dist <= 5) {
+            io.to(h.id).emit('runner_spotted_live', {
+              runnerId: socket.id,
+              runnerName: player.name,
+              location: player.currentLocation,
+              distance: dist
+            });
+          } else {
+            io.to(h.id).emit('runner_lost_sight', {
+              runnerId: socket.id
+            });
           }
-        });
-      }
+        }
+      });
     }
 
     // 2. If Hunter: broadcast live location to fellow hunters
@@ -549,7 +619,9 @@ io.on('connection', (socket) => {
         io.to(h.id).emit('hunter_location_updated', {
           hunterId: socket.id,
           hunterName: player.name,
-          location: player.currentLocation
+          location: player.currentLocation,
+          color: player.color,
+          avatar: player.avatar
         });
       });
 
@@ -650,10 +722,12 @@ io.on('connection', (socket) => {
 
     runners.forEach(runner => {
       if (runner.currentLocation) {
-        room.gameState.pinHistory.push({
+        addPinToHistory(room, {
           id: `drone_${now}_${runner.id}`,
           runnerId: runner.id,
           runnerName: runner.name,
+          runnerColor: runner.color,
+          runnerAvatar: runner.avatar,
           lat: runner.currentLocation.lat,
           lng: runner.currentLocation.lng,
           timestamp: now,
@@ -662,10 +736,7 @@ io.on('connection', (socket) => {
       }
     });
 
-    room.gameState.log.unshift({
-      timestamp: now,
-      text: `🛰️ DRONE SWEEP DEPLOYED by ${player.name}: Live aerial coordinates revealed!`
-    });
+    addLogEntry(room, `🛰️ DRONE SWEEP DEPLOYED by ${player.name}: Live aerial coordinates revealed!`);
 
     io.to(code).emit('drone_scan_activated', {
       deployedBy: player.name,
@@ -708,10 +779,7 @@ io.on('connection', (socket) => {
     };
 
     room.gameState.tripwires.push(newTripwire);
-    room.gameState.log.unshift({
-      timestamp: Date.now(),
-      text: `📡 ${player.name} armed a perimeter motion tripwire!`
-    });
+    addLogEntry(room, `📡 ${player.name} armed a perimeter motion tripwire!`);
 
     io.to(code).emit('tripwire_deployed', {
       tripwire: newTripwire,
@@ -747,17 +815,16 @@ io.on('connection', (socket) => {
       id: `decoy_${Date.now()}_${player.id}`,
       runnerId: player.id,
       runnerName: player.name,
+      runnerColor: player.color,
+      runnerAvatar: player.avatar,
       lat,
       lng,
       timestamp: Date.now(),
       isDecoy: true
     };
 
-    room.gameState.pinHistory.push(decoyPin);
-    room.gameState.log.unshift({
-      timestamp: Date.now(),
-      text: `📡 RADAR DETECTED: Location signal broadcast!`
-    });
+    addPinToHistory(room, decoyPin);
+    addLogEntry(room, `📡 RADAR DETECTED: Location signal broadcast!`);
 
     io.to(code).emit('pin_dropped', { pin: decoyPin, room });
 
@@ -789,10 +856,7 @@ io.on('connection', (socket) => {
     const delayMs = 3 * 60 * 1000;
     room.gameState.nextPinAt += delayMs;
 
-    room.gameState.log.unshift({
-      timestamp: Date.now(),
-      text: `⚡ RADAR JAMMED: Signal scrambled! Next ping delayed by +3 minutes.`
-    });
+    addLogEntry(room, `⚡ RADAR JAMMED: Signal scrambled! Next ping delayed by +3 minutes.`);
 
     io.to(code).emit('radar_jammed', { room, delayedByMinutes: 3 });
 
@@ -838,8 +902,8 @@ io.on('connection', (socket) => {
     const proximityThreshold = room.settings.proximityTagMeters || 5; // User requirement: live proximity tag <= 5 meters
 
     if (hunter.currentLocation && runner.currentLocation) {
-      const hunterFresh = Date.now() - (hunter.currentLocation.updatedAt || 0) < 30000;
-      const runnerFresh = Date.now() - (runner.currentLocation.updatedAt || 0) < 30000;
+      const hunterFresh = Date.now() - (hunter.currentLocation.updatedAt || 0) < 90000; // 90s tolerance for stationary players
+      const runnerFresh = Date.now() - (runner.currentLocation.updatedAt || 0) < 90000;
       if (hunterFresh && runnerFresh) {
         distMeters = calculateDistanceMeters(
           hunter.currentLocation.lat,
@@ -994,7 +1058,7 @@ io.on('connection', (socket) => {
   });
 
   // Reconnect / Rejoin room on app resume or network recovery
-  socket.on('reconnect_room', ({ roomCode, playerId, playerName }, callback) => {
+  socket.on('reconnect_room', ({ roomCode, playerId, playerName, sessionToken }, callback) => {
     const code = roomCode?.trim().toUpperCase();
     const room = rooms.get(code);
     if (!room) {
@@ -1017,6 +1081,17 @@ io.on('connection', (socket) => {
     }
 
     if (player) {
+      // Session hijacking protection: if token exists on player, verify it!
+      if (player.sessionToken && sessionToken && player.sessionToken !== sessionToken) {
+        if (callback) callback({ success: false, message: 'Invalid session token. Reconnection denied.' });
+        return;
+      }
+      // If player is currently marked online under another active socket and no token provided, deny
+      if (player.isOnline && player.id !== socket.id && !sessionToken) {
+        if (callback) callback({ success: false, message: 'Player is currently active in another session.' });
+        return;
+      }
+
       const oldId = player.id;
       delete room.players[oldId];
       player.id = socket.id;
@@ -1033,7 +1108,7 @@ io.on('connection', (socket) => {
       socket.data.playerName = player.name;
 
       console.log(`[Player Reconnected] ${player.name} (${socket.id}) in room ${code}`);
-      if (callback) callback({ success: true, room, playerId: socket.id });
+      if (callback) callback({ success: true, room, playerId: socket.id, sessionToken: player.sessionToken });
       io.to(code).emit('room_updated', room);
       return;
     }
@@ -1089,21 +1164,20 @@ function triggerPinDrop(roomCode) {
         id: `pin_${now}_${runner.id}`,
         runnerId: runner.id,
         runnerName: runner.name,
+        runnerColor: runner.color,
+        runnerAvatar: runner.avatar,
         lat: runner.currentLocation.lat,
         lng: runner.currentLocation.lng,
         accuracy: runner.currentLocation.accuracy,
         timestamp: now,
         isDecoy: false
       };
-      room.gameState.pinHistory.push(newPin);
+      addPinToHistory(room, newPin);
       pinsDroppedCount++;
     }
   });
 
-  room.gameState.log.unshift({
-    timestamp: now,
-    text: `📍 MANDATORY PIN DROP! Radar broadcasted for ${pinsDroppedCount} active runner(s)!`
-  });
+  addLogEntry(room, `📍 MANDATORY PIN DROP! Radar broadcasted for ${pinsDroppedCount} active runner(s)!`);
 
   io.to(roomCode).emit('mandatory_pin_dropped', {
     timestamp: now,
@@ -1121,10 +1195,7 @@ function endGame(roomCode, winner, reason) {
   room.status = 'ended';
   room.gameState.endedAt = now;
   room.gameState.winner = winner;
-  room.gameState.log.unshift({
-    timestamp: now,
-    text: `🏆 HUNT COMPLETE: ${reason}`
-  });
+  addLogEntry(room, `🏆 HUNT COMPLETE: ${reason}`);
 
   io.to(roomCode).emit('game_ended', {
     winner,
