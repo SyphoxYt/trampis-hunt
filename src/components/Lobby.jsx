@@ -15,7 +15,10 @@ import {
   Info,
   Clock,
   Sparkles,
-  UserCheck
+  UserCheck,
+  UserX,
+  Palette,
+  Trophy
 } from 'lucide-react';
 import { sound } from '../services/sound';
 
@@ -28,6 +31,9 @@ export default function Lobby({
   onStartGame,
   onLeaveRoom,
   onOpenRules,
+  onKickPlayer,
+  onAutoSplitUnassigned,
+  onOpenCareerStats,
   serverIp
 }) {
   const [copied, setCopied] = useState(false);
@@ -375,16 +381,31 @@ export default function Lobby({
                 className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-sm">{p.avatar || '🏃'}</span>
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: p.color || '#10B981' }}
+                  />
                   <span className="font-semibold text-slate-200">
                     {p.name} {p.id === playerId ? '(You)' : ''}
                   </span>
                 </div>
-                {p.id === room.hostId && (
-                  <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded">
-                    HOST
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {p.id === room.hostId && (
+                    <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded">
+                      HOST
+                    </span>
+                  )}
+                  {isHost && p.id !== playerId && (
+                    <button
+                      onClick={() => onKickPlayer && onKickPlayer(p.id)}
+                      className="p-1 text-slate-500 hover:text-rose-400 rounded transition"
+                      title={`Kick ${p.name}`}
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -426,16 +447,31 @@ export default function Lobby({
                 className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 border border-slate-800 text-xs"
               >
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span className="text-sm">{p.avatar || '🚔'}</span>
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: p.color || '#3B82F6' }}
+                  />
                   <span className="font-semibold text-slate-200">
                     {p.name} {p.id === playerId ? '(You)' : ''}
                   </span>
                 </div>
-                {p.id === room.hostId && (
-                  <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded">
-                    HOST
-                  </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                  {p.id === room.hostId && (
+                    <span className="text-[10px] font-mono bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded">
+                      HOST
+                    </span>
+                  )}
+                  {isHost && p.id !== playerId && (
+                    <button
+                      onClick={() => onKickPlayer && onKickPlayer(p.id)}
+                      className="p-1 text-slate-500 hover:text-rose-400 rounded transition"
+                      title={`Kick ${p.name}`}
+                    >
+                      <UserX className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
 
@@ -464,8 +500,8 @@ export default function Lobby({
           </div>
           {isHost && (
             <button
-              onClick={handleShuffleClick}
-              className="text-xs text-cyan-400 font-bold hover:underline"
+              onClick={() => onAutoSplitUnassigned ? onAutoSplitUnassigned() : handleShuffleClick()}
+              className="text-xs text-cyan-400 font-bold hover:underline cursor-pointer"
             >
               Auto-Split
             </button>

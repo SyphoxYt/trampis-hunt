@@ -28,7 +28,9 @@ export default function HunterView({
   spottedRunners = [],
   onTagRunner,
   onUseDroneScan,
-  onDeployTripwire
+  onDeployTripwire,
+  onEndHunt,
+  onKickPlayer
 }) {
   const [selectedRunner, setSelectedRunner] = useState(null);
   const [catchCodeInput, setCatchCodeInput] = useState('');
@@ -280,6 +282,8 @@ export default function HunterView({
         <div className="w-full h-[320px] sm:h-[380px] rounded-2xl overflow-hidden border border-slate-800 shadow-sm relative">
           <TacticalMap
             userLocation={userLocation}
+            userColor={player?.color}
+            userAvatar={player?.avatar}
             pins={pins}
             teammates={teammateLocations}
             spottedRunners={spottedRunners}
@@ -328,6 +332,11 @@ export default function HunterView({
                           ⚡ IN SIGHT (&le;5m)
                         </span>
                       )}
+                      {r.isOnline === false && !isCaught && (
+                        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-950 text-amber-400 border border-amber-800/50">
+                          OFFLINE (PHONE DIED?)
+                        </span>
+                      )}
                     </div>
                     <div className="text-xs font-mono text-slate-400 mt-0.5">
                       {isCaught ? (
@@ -349,6 +358,19 @@ export default function HunterView({
 
                 {!isCaught && (
                   <div className="flex items-center gap-2">
+                    {room?.hostId === player?.id && r.isOnline === false && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Kick offline runner ${r.name}? If all active runners are gone, hunters win.`)) {
+                            onKickPlayer && onKickPlayer(r.id);
+                          }
+                        }}
+                        className="px-2.5 py-2 rounded-xl bg-amber-950/80 hover:bg-amber-900 border border-amber-700 text-amber-300 font-mono text-[10px] font-bold transition active:scale-95"
+                        title="Runner phone died / offline: kick to eliminate"
+                      >
+                        Kick MIA
+                      </button>
+                    )}
                     {inRange && (
                       <button
                         onClick={() => handleProximityTagDirect(r)}
@@ -434,6 +456,22 @@ export default function HunterView({
             </span>
           </button>
         </div>
+
+        {/* Host Early End Hunt Control */}
+        {room?.hostId === player?.id && (
+          <div className="pt-2 border-t border-slate-800 flex flex-col gap-1.5">
+            <button
+              onClick={() => {
+                if (window.confirm('End this hunt early for all players and show results?')) {
+                  onEndHunt && onEndHunt();
+                }
+              }}
+              className="w-full py-3 rounded-2xl bg-slate-900 border border-rose-900/60 hover:bg-rose-950/40 text-rose-400 font-mono font-bold text-xs transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <span>🏁 END HUNT EARLY (HOST)</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tag Verification Modal */}

@@ -87,13 +87,13 @@ io.on('connection', (socket) => {
   console.log(`[Socket] Connected: ${socket.id}`);
 
   // Create Room
-  socket.on('create_room', ({ playerName, settings }, callback) => {
+  socket.on('create_room', ({ playerName, playerColor, playerAvatar, settings }, callback) => {
     const code = Math.random().toString(36).substring(2, 7).toUpperCase();
     const defaultSettings = {
       pinIntervalMinutes: 10,
       gameDurationMinutes: 60,
       warningSeconds: 30,
-      proximityTagMeters: 25,
+      proximityTagMeters: 5, // Universal standard: 5 meters everywhere
       allowVehiclesForHunters: true,
       ...settings
     };
@@ -107,6 +107,8 @@ io.on('connection', (socket) => {
         [socket.id]: {
           id: socket.id,
           name: playerName || 'Lead Operative',
+          color: playerColor || '#06B6D4',
+          avatar: playerAvatar || '🥷',
           role: 'unassigned',
           isReady: true,
           catchCode: generateCatchCode(),
@@ -125,6 +127,7 @@ io.on('connection', (socket) => {
       gameState: {
         startedAt: null,
         endsAt: null,
+        endedAt: null,
         nextPinAt: null,
         lastPinAt: null,
         pinHistory: [],
@@ -143,8 +146,21 @@ io.on('connection', (socket) => {
     io.to(code).emit('room_updated', room);
   });
 
+  // Update Player Profile (Color & Avatar)
+  socket.on('update_profile', ({ color, avatar }) => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players[socket.id];
+    if (player) {
+      if (color) player.color = color;
+      if (avatar) player.avatar = avatar;
+      io.to(code).emit('room_updated', room);
+    }
+  });
+
   // Join Room
-  socket.on('join_room', ({ roomCode, playerName }, callback) => {
+  socket.on('join_room', ({ roomCode, playerName, playerColor, playerAvatar }, callback) => {
     const code = roomCode?.trim().toUpperCase();
     const room = rooms.get(code);
 
@@ -182,6 +198,8 @@ io.on('connection', (socket) => {
     room.players[socket.id] = {
       id: socket.id,
       name: trimmedName,
+      color: playerColor || '#10B981',
+      avatar: playerAvatar || '🥷',
       role: 'unassigned',
       isReady: false,
       catchCode: generateCatchCode(),
@@ -288,6 +306,78 @@ io.on('connection', (socket) => {
     io.to(code).emit('room_updated', room);
   });
 
+  // Auto-split only unassigned players evenly across runners and hunters
+  socket.on('auto_split_unassigned', () => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room || room.hostId !== socket.id) return;
+
+    const players = Object.values(room.players);
+    let curRunners = players.filter(p => p.role === 'runner').length;
+    let curHunters = players.filter(p => p.role === 'hunter').length;
+    const unassigned = players.filter(p => p.role !== 'runner' && p.role !== 'hunter');
+
+    unassigned.forEach(p => {
+      if (curRunners <= curHunters) {
+        p.role = 'runner';
+        curRunners++;
+      } else {
+        p.role = 'hunter';
+        curHunters++;
+      }
+    });
+
+    console.log(`[Auto-Split] Split ${unassigned.length} unassigned players in Room ${code}`);
+    io.to(code).emit('room_updated', room);
+  });
+
+  // Kick / Remove player (Host only)
+  socket.on('kick_player', ({ targetPlayerId }) => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room || room.hostId !== socket.id) return;
+    if (targetPlayerId === socket.id) return;
+
+    const target = room.players[targetPlayerId];
+    if (!target) return;
+
+    const wasActiveRunner = room.status === 'playing' && target.role === 'runner' && !target.isCaught;
+    delete room.players[targetPlayerId];
+
+    io.to(targetPlayerId).emit('kicked_from_room', {
+      message: 'You were removed from the room by the host.'
+    });
+
+    room.gameState.log.unshift({
+      timestamp: Date.now(),
+      text: `👢 ${target.name} was removed from the match by the host.`
+    });
+
+    console.log(`[Player Kicked] Host removed ${target.name} (${targetPlayerId}) from Room ${code}`);
+
+    // If game in progress and kicked runner was active, check if all runners are eliminated!
+    if (wasActiveRunner) {
+      const remainingRunners = Object.values(room.players).filter(p => p.role === 'runner' && !p.isCaught);
+      if (remainingRunners.length === 0) {
+        endGame(code, 'hunters_win', 'All active runners have been caught or removed!');
+        return;
+      }
+    }
+
+    io.to(code).emit('room_updated', room);
+  });
+
+  // End hunt early (Host only)
+  socket.on('end_hunt', () => {
+    const code = socket.data.roomCode;
+    const room = rooms.get(code);
+    if (!room || room.hostId !== socket.id) return;
+    if (room.status !== 'playing') return;
+
+    console.log(`[Hunt Ended by Host] Room ${code}`);
+    endGame(code, 'ended_by_host', 'Hunt was ended early by the host.');
+  });
+
   // Start Game with Robust Failsafes
   socket.on('start_game', (callback) => {
     const code = socket.data.roomCode;
@@ -333,10 +423,18 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Auto-assign any remaining unassigned players to the smaller team
+    // Auto-assign any remaining unassigned players evenly across teams
     if (unassigned.length > 0) {
+      let curRunners = runners.length;
+      let curHunters = hunters.length;
       unassigned.forEach(p => {
-        p.role = runners.length <= hunters.length ? 'runner' : 'hunter';
+        if (curRunners <= curHunters) {
+          p.role = 'runner';
+          curRunners++;
+        } else {
+          p.role = 'hunter';
+          curHunters++;
+        }
       });
     }
 
@@ -1019,9 +1117,12 @@ function endGame(roomCode, winner, reason) {
   const room = rooms.get(roomCode);
   if (!room) return;
 
+  const now = Date.now();
   room.status = 'ended';
+  room.gameState.endedAt = now;
+  room.gameState.winner = winner;
   room.gameState.log.unshift({
-    timestamp: Date.now(),
+    timestamp: now,
     text: `🏆 HUNT COMPLETE: ${reason}`
   });
 
@@ -1032,7 +1133,7 @@ function endGame(roomCode, winner, reason) {
   });
 }
 
-// Tick loop for 30s countdown warning and auto-pins
+// Tick loop for 30s countdown warning, auto-pins, and offline failsafes
 setInterval(() => {
   const now = Date.now();
   for (const [code, room] of rooms.entries()) {
@@ -1040,6 +1141,37 @@ setInterval(() => {
       if (now >= room.gameState.endsAt) {
         endGame(code, 'runners_escaped', 'Time expired! Surviving runners win!');
         continue;
+      }
+
+      // Check for offline/dead-phone runners to prevent soft-locks (3 min timeout)
+      const activeRunners = Object.values(room.players).filter(p => p.role === 'runner' && !p.isCaught);
+      let runnerTimedOut = false;
+
+      activeRunners.forEach(r => {
+        if (r.isOnline === false && r.disconnectedAt && (now - r.disconnectedAt > 3 * 60 * 1000)) {
+          r.isCaught = true;
+          r.caughtAt = now;
+          r.caughtBy = 'Signal Lost (Offline)';
+          runnerTimedOut = true;
+          room.gameState.log.unshift({
+            timestamp: now,
+            text: `⚠️ Runner ${r.name} disconnected for over 3m (phone died / offline). Marked as MIA.`
+          });
+          io.to(code).emit('runner_tagged', {
+            runnerId: r.id,
+            runnerName: r.name,
+            hunterName: 'Signal Lost (MIA)',
+            room
+          });
+        }
+      });
+
+      if (runnerTimedOut) {
+        const remaining = Object.values(room.players).filter(p => p.role === 'runner' && !p.isCaught);
+        if (remaining.length === 0) {
+          endGame(code, 'hunters_win', 'All active runners were captured or lost signal!');
+          continue;
+        }
       }
 
       if (now >= room.gameState.nextPinAt) {

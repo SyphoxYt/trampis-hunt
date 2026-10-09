@@ -5,6 +5,8 @@ import { Crosshair, Layers, Map as MapIcon } from 'lucide-react';
 
 export default function TacticalMap({
   userLocation,
+  userColor,
+  userAvatar,
   pins = [],
   teammates = [],
   spottedRunners = [],
@@ -113,7 +115,7 @@ export default function TacticalMap({
       map.panTo([lat, lng], { animate: true, duration: 0.3 });
     }
 
-    const themeColor = userRole === 'runner' ? '#10B981' : '#2563EB';
+    const themeColor = userColor || (userRole === 'runner' ? '#10B981' : '#2563EB');
     const angle = heading || 0;
 
     const iconHtml = `
@@ -152,9 +154,9 @@ export default function TacticalMap({
         fillOpacity: 0.12
       }).addTo(map);
     }
-  }, [userLocation, autoFollow, userRole]);
+  }, [userLocation, autoFollow, userRole, userColor]);
 
-  // Update Pins (Runner Dropped Radar Pins - Displays Exact Runner Name)
+  // Update Pins (Runner Dropped Radar Pins - Displays Exact Runner Name & Color)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -173,8 +175,8 @@ export default function TacticalMap({
       const uncertaintyRadiusMeters = Math.min(1500, Math.max(30, minutesAgo * 120));
 
       const runnerName = pin.runnerName || 'Runner';
-      let pinColor = '#EF4444'; // Red default for runners
-      let badgeIcon = '📍';
+      let pinColor = pin.runnerColor || '#EF4444';
+      let badgeIcon = pin.runnerAvatar || '📍';
       let badgeTitle = runnerName;
 
       if (pin.isDecoy) {
@@ -242,28 +244,30 @@ export default function TacticalMap({
     markersRef.current.teammates = [];
 
     const isRunnerRole = userRole === 'runner';
-    const badgeBg = isRunnerRole ? 'bg-emerald-600' : 'bg-blue-600';
-    const dotColor = isRunnerRole ? 'bg-emerald-400' : 'bg-blue-500';
-    const roleIcon = isRunnerRole ? '🏃' : '🚔';
 
     teammates.forEach((teammate) => {
       if (!teammate.location) return;
 
+      const teammateColor = teammate.color || (isRunnerRole ? '#10B981' : '#2563EB');
+      const teammateAvatar = teammate.avatar || (isRunnerRole ? '🏃' : '🚔');
+
       const teammateHtml = `
         <div class="flex flex-col items-center">
-          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${badgeBg} text-white shadow-lg border border-white whitespace-nowrap flex items-center gap-1">
-            <span>${roleIcon}</span>
+          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold text-white shadow-lg border border-white whitespace-nowrap flex items-center gap-1"
+               style="background-color: ${teammateColor}">
+            <span>${teammateAvatar}</span>
             <span>${teammate.name || (isRunnerRole ? 'Runner' : 'Hunter')}</span>
           </div>
-          <div class="w-3.5 h-3.5 rounded-full ${dotColor} border-2 border-white shadow-md"></div>
+          <div class="w-3.5 h-3.5 rounded-full border-2 border-white shadow-md"
+               style="background-color: ${teammateColor}"></div>
         </div>
       `;
 
       const icon = L.divIcon({
         html: teammateHtml,
         className: 'teammate-marker',
-        iconSize: [80, 32],
-        iconAnchor: [40, 26]
+        iconSize: [85, 32],
+        iconAnchor: [42, 26]
       });
 
       const m = L.marker([teammate.location.lat, teammate.location.lng], { icon }).addTo(map);

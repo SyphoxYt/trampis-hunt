@@ -311,6 +311,27 @@ class SoundEngine {
       });
     } catch (e) {}
   }
+
+  // Haptic Vibrations for Pocket Gameplay
+  vibrate(pattern = [200]) {
+    if (typeof window !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(pattern);
+      } catch (e) {}
+    }
+  }
+
+  vibrateSpotted() {
+    this.vibrate([300, 100, 300, 100, 500]);
+  }
+
+  vibrateTripwire() {
+    this.vibrate([250, 100, 250, 100, 250]);
+  }
+
+  vibrateTagged() {
+    this.vibrate([500, 150, 500]);
+  }
 }
 
 export const sound = new SoundEngine();

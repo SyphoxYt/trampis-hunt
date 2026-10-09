@@ -27,7 +27,8 @@ export default function RunnerView({
   teammateLocations = [],
   onUseDecoy,
   onUseJammer,
-  onSurrender
+  onSurrender,
+  onEndHunt
 }) {
   const [timeLeftMs, setTimeLeftMs] = useState(0);
   const [gameTimeLeftMs, setGameTimeLeftMs] = useState(0);
@@ -231,6 +232,8 @@ export default function RunnerView({
         <div className="w-full h-[320px] sm:h-[380px] rounded-2xl overflow-hidden border border-slate-800 shadow-sm relative">
           <TacticalMap
             userLocation={userLocation}
+            userColor={player?.color}
+            userAvatar={player?.avatar}
             pins={pinHistory}
             teammates={teammateLocations}
             userRole="runner"
@@ -315,6 +318,36 @@ export default function RunnerView({
                 <span>Surrender</span>
               </button>
             </div>
+
+            {/* Host End Hunt Early */}
+            {room?.hostId === player?.id && (
+              <button
+                onClick={() => {
+                  if (window.confirm('End this hunt early for all players and show results?')) {
+                    onEndHunt && onEndHunt();
+                  }
+                }}
+                className="w-full py-3 rounded-2xl bg-slate-900 border border-rose-900/60 hover:bg-rose-950/40 text-rose-400 font-mono font-bold text-xs transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+              >
+                <span>🏁 END HUNT EARLY (HOST)</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* If Caught Host End Hunt Early */}
+        {player.isCaught && room?.hostId === player?.id && (
+          <div className="pt-2">
+            <button
+              onClick={() => {
+                if (window.confirm('End this hunt early for all players and show results?')) {
+                  onEndHunt && onEndHunt();
+                }
+              }}
+              className="w-full py-3 rounded-2xl bg-slate-900 border border-rose-900/60 hover:bg-rose-950/40 text-rose-400 font-mono font-bold text-xs transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            >
+              <span>🏁 END HUNT EARLY (HOST)</span>
+            </button>
           </div>
         )}
       </div>

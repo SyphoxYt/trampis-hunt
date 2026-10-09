@@ -7,6 +7,7 @@ import RunnerView from './components/RunnerView';
 import HunterView from './components/HunterView';
 import GameOverView from './components/GameOverView';
 import RulesModal from './components/RulesModal';
+import CareerStatsModal from './components/CareerStatsModal';
 import {
   Compass,
   Moon,
@@ -23,13 +24,22 @@ import {
   Plane,
   Radar,
   Settings,
-  Server
+  Server,
+  Trophy,
+  Palette
 } from 'lucide-react';
 
 export default function App() {
   const [playerName, setPlayerName] = useState(() => {
     return localStorage.getItem('trampis_player_name') || `Operative_${Math.floor(100 + Math.random() * 900)}`;
   });
+  const [playerColor, setPlayerColor] = useState(() => {
+    return localStorage.getItem('trampis_player_color') || '#10B981';
+  });
+  const [playerAvatar, setPlayerAvatar] = useState(() => {
+    return localStorage.getItem('trampis_player_avatar') || '⚡';
+  });
+  const [showCareerStats, setShowCareerStats] = useState(false);
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [room, setRoom] = useState(null);
   const [playerId, setPlayerId] = useState(null);
@@ -101,11 +111,13 @@ export default function App() {
 
     const onPinWarning = () => {
       sound.playWarningTick(true);
+      sound.vibrate(200);
     };
 
     const onMandatoryPinDropped = ({ room: updatedRoom }) => {
       setRoom(updatedRoom);
       sound.playSonarPing();
+      sound.vibrate([150, 100, 150]);
       showAbilityBanner({
         id: `pin_${Date.now()}`,
         title: '📍 MANDATORY RADAR PIN DROP',
@@ -125,9 +137,11 @@ export default function App() {
         let bannerType = 'info';
         if (alertData.ability === 'drone') {
           sound.playDroneScan();
+          sound.vibrate([100, 50, 100]);
           bannerType = isRunner ? 'danger' : 'success';
         } else if (alertData.ability === 'tripwire') {
           sound.playTripwireAlert();
+          sound.vibrateTripwire();
           bannerType = 'danger';
         } else if (alertData.ability === 'jammer') {
           sound.playJammerNoise();
@@ -152,6 +166,7 @@ export default function App() {
     const onRunnerTagged = ({ runnerName, hunterName, room: updatedRoom }) => {
       setRoom(updatedRoom);
       sound.playCaptureKlaxon();
+      sound.vibrateTagged();
       showAbilityBanner({
         id: `tag_${Date.now()}`,
         title: '🎯 RUNNER CAPTURED!',
@@ -162,6 +177,46 @@ export default function App() {
 
     const onGameEnded = ({ room: updatedRoom, reason }) => {
       setRoom(updatedRoom);
+      if (updatedRoom?.gameState) {
+        try {
+          const myPlayer = updatedRoom.players?.[socket.id];
+          const startedAt = updatedRoom.gameState.startedAt || Date.now();
+          const endedAt = updatedRoom.gameState.endedAt || Date.now();
+          const durationSeconds = Math.max(0, Math.round((endedAt - startedAt) / 1000));
+          const mySurvivalSeconds = myPlayer?.role === 'runner'
+            ? (myPlayer.isCaught && myPlayer.caughtAt ? Math.max(0, Math.round((myPlayer.caughtAt - startedAt) / 1000)) : durationSeconds)
+            : 0;
+
+          const runnersList = Object.values(updatedRoom.players || {})
+            .filter((p) => p.role === 'runner')
+            .map((r) => ({
+              id: r.id,
+              name: r.name,
+              isCaught: !!r.isCaught,
+              caughtBy: r.caughtBy || null
+            }));
+
+          const matchEntry = {
+            id: `hunt_${Date.now()}`,
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            winner: updatedRoom.gameState.winner || 'unknown',
+            reason: reason || updatedRoom.gameState.endReason || 'Time expired',
+            myRole: myPlayer?.role || 'spectator',
+            myCaught: !!myPlayer?.isCaught,
+            mySurvivalSeconds,
+            durationSeconds,
+            runners: runnersList
+          };
+
+          const historyStr = localStorage.getItem('trampis_hunt_history');
+          const history = historyStr ? JSON.parse(historyStr) : [];
+          const updatedHistory = [matchEntry, ...history.filter((h) => h.id !== matchEntry.id)].slice(0, 30);
+          localStorage.setItem('trampis_hunt_history', JSON.stringify(updatedHistory));
+        } catch (e) {
+          console.error('Error logging match history:', e);
+        }
+      }
     };
 
     const onHunterLocationUpdated = ({ hunterId, hunterName, location }) => {
@@ -179,6 +234,7 @@ export default function App() {
     };
 
     const onRunnerSpottedLive = ({ runnerId, runnerName, location, distance }) => {
+      sound.vibrateSpotted();
       setSpottedRunners((prev) => {
         const filtered = prev.filter((r) => r.runnerId !== runnerId);
         return [...filtered, { runnerId, runnerName, location, distance }];
@@ -192,6 +248,14 @@ export default function App() {
     const onGameError = ({ message }) => {
       sound.playErrorBuzz();
       setErrorMessage(message);
+      setTimeout(() => setErrorMessage(''), 5000);
+    };
+
+    const onKickedFromRoom = ({ reason }) => {
+      localStorage.removeItem('trampis_active_room');
+      setRoom(null);
+      sound.playErrorBuzz();
+      setErrorMessage(reason || 'You were removed from the hunt room.');
       setTimeout(() => setErrorMessage(''), 5000);
     };
 
@@ -220,6 +284,7 @@ export default function App() {
     socket.on('runner_spotted_live', onRunnerSpottedLive);
     socket.on('runner_lost_sight', onRunnerLostSight);
     socket.on('game_error', onGameError);
+    socket.on('kicked_from_room', onKickedFromRoom);
 
     fetch('/api/ip')
       .then((res) => res.json())
@@ -251,6 +316,7 @@ export default function App() {
       socket.off('runner_spotted_live', onRunnerSpottedLive);
       socket.off('runner_lost_sight', onRunnerLostSight);
       socket.off('game_error', onGameError);
+      socket.off('kicked_from_room', onKickedFromRoom);
       socket.off('quick_comm_received', onQuickCommReceived);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- all handlers use functional state, no stale closures
@@ -278,6 +344,22 @@ export default function App() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handlers
+  const handleColorChange = (color) => {
+    setPlayerColor(color);
+    localStorage.setItem('trampis_player_color', color);
+    if (socket.connected && room) {
+      socket.emit('update_profile', { playerColor: color });
+    }
+  };
+
+  const handleAvatarChange = (avatar) => {
+    setPlayerAvatar(avatar);
+    localStorage.setItem('trampis_player_avatar', avatar);
+    if (socket.connected && room) {
+      socket.emit('update_profile', { playerAvatar: avatar });
+    }
+  };
+
   const handleCreateRoom = () => {
     sound.init();
     if (!socket.connected) {
@@ -285,7 +367,7 @@ export default function App() {
       socket.connect();
       return;
     }
-    socket.emit('create_room', { playerName }, (res) => {
+    socket.emit('create_room', { playerName, playerColor, playerAvatar }, (res) => {
       if (res?.success) {
         setRoom(res.room);
         setPlayerId(res.playerId);
@@ -315,7 +397,7 @@ export default function App() {
     sound.init();
     socket.emit(
       'join_room',
-      { roomCode: code, playerName },
+      { roomCode: code, playerName, playerColor, playerAvatar },
       (res) => {
         if (res?.success) {
           setRoom(res.room);
@@ -343,6 +425,30 @@ export default function App() {
 
   const handleRandomizeTeams = (mode = 'balanced') => {
     socket.emit('randomize_teams', { mode });
+  };
+
+  const handleAutoSplitUnassigned = () => {
+    socket.emit('auto_split_unassigned');
+  };
+
+  const handleKickPlayer = (targetPlayerId) => {
+    socket.emit('kick_player', { targetPlayerId }, (res) => {
+      if (!res?.success) {
+        setErrorMessage(res?.message || 'Failed to kick player.');
+        setTimeout(() => setErrorMessage(''), 4000);
+      }
+    });
+  };
+
+  const handleEndHunt = () => {
+    if (confirm('End the hunt early? This will declare current match results.')) {
+      socket.emit('end_hunt', (res) => {
+        if (!res?.success) {
+          setErrorMessage(res?.message || 'Failed to end hunt.');
+          setTimeout(() => setErrorMessage(''), 4000);
+        }
+      });
+    }
   };
 
   const handleUpdateSettings = (newSettings) => {
@@ -390,7 +496,8 @@ export default function App() {
   const handleTestAudio = () => {
     sound.init();
     sound.playSonarPing();
-    setErrorMessage('🔊 Audio verified!');
+    sound.vibrate([100, 50, 100]);
+    setErrorMessage('🔊 Audio & Haptics verified!');
     setTimeout(() => setErrorMessage(''), 2500);
   };
 
@@ -398,6 +505,8 @@ export default function App() {
     id: playerId,
     name: playerName,
     role: 'unassigned',
+    color: playerColor,
+    avatar: playerAvatar,
     powerups: {
       decoysLeft: 1,
       jammersLeft: 1,
@@ -439,6 +548,16 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Career Stats & Customization */}
+          <button
+            onClick={() => setShowCareerStats(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 text-xs font-semibold transition active:scale-95"
+            title="Career Stats & Avatar"
+          >
+            <Trophy className="w-3.5 h-3.5" />
+            <span className="text-sm leading-none">{playerAvatar}</span>
+          </button>
+
           {/* Audio Test Button */}
           <button
             onClick={handleTestAudio}
@@ -557,6 +676,30 @@ export default function App() {
                 />
               </div>
 
+              {/* Marker Identity & Career Stats Preview */}
+              <button
+                type="button"
+                onClick={() => setShowCareerStats(true)}
+                className="flex items-center justify-between p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition active:scale-98 cursor-pointer"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-sm shadow-sm"
+                    style={{ backgroundColor: playerColor }}
+                  >
+                    {playerAvatar}
+                  </span>
+                  <div className="text-left">
+                    <div className="text-[10px] font-mono uppercase font-bold text-slate-400">Tactical Marker</div>
+                    <div className="text-xs font-bold text-white">Customize Avatar & Color</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400">
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Stats</span>
+                </div>
+              </button>
+
               {/* Host Game Button */}
               <button
                 onClick={handleCreateRoom}
@@ -629,6 +772,9 @@ export default function App() {
             playerId={playerId}
             onSetRole={handleSetRole}
             onRandomizeTeams={handleRandomizeTeams}
+            onAutoSplitUnassigned={handleAutoSplitUnassigned}
+            onKickPlayer={handleKickPlayer}
+            onOpenCareerStats={() => setShowCareerStats(true)}
             onUpdateSettings={handleUpdateSettings}
             onStartGame={handleStartGame}
             onLeaveRoom={handleLeaveRoom}
@@ -645,6 +791,7 @@ export default function App() {
               onUseDecoy={handleUseDecoy}
               onUseJammer={handleUseJammer}
               onSurrender={handleSurrender}
+              onEndHunt={handleEndHunt}
             />
           ) : (
             <HunterView
@@ -656,6 +803,8 @@ export default function App() {
               onTagRunner={handleTagRunner}
               onUseDroneScan={handleUseDroneScan}
               onDeployTripwire={handleDeployTripwire}
+              onEndHunt={handleEndHunt}
+              onKickPlayer={handleKickPlayer}
             />
           )
         ) : (
@@ -664,12 +813,24 @@ export default function App() {
             playerId={playerId}
             onResetGame={handleResetGame}
             onLeaveRoom={handleLeaveRoom}
+            onOpenCareerStats={() => setShowCareerStats(true)}
           />
         )}
       </main>
 
       {/* Rules Modal */}
       <RulesModal isOpen={showRules} onClose={() => setShowRules(false)} />
+
+      {/* Career Stats & Customization Modal */}
+      <CareerStatsModal
+        isOpen={showCareerStats}
+        onClose={() => setShowCareerStats(false)}
+        playerName={playerName}
+        playerColor={playerColor}
+        playerAvatar={playerAvatar}
+        onUpdateColor={handleColorChange}
+        onUpdateAvatar={handleAvatarChange}
+      />
 
       {/* Crossplay Server Settings Modal */}
       {showServerModal && (
