@@ -25,6 +25,7 @@ export default function HunterView({
   player,
   userLocation,
   teammateLocations = [],
+  spottedRunners = [],
   onTagRunner,
   onUseDroneScan,
   onDeployTripwire
@@ -113,14 +114,38 @@ export default function HunterView({
     setShowTagModal(true);
   };
 
+  const handleProximityTagDirect = (runner) => {
+    onTagRunner(
+      {
+        runnerId: runner.id,
+        catchCodeInput: ''
+      },
+      (res) => {
+        if (res.success) {
+          sound.playCaptureKlaxon();
+        } else {
+          sound.playErrorBuzz();
+          alert(res.message || 'Proximity tag failed. You must be within 5m of the runner.');
+        }
+      }
+    );
+  };
+
   const handleConfirmTag = () => {
     if (!selectedRunner) return;
     setTagError('');
 
+    const trimmed = catchCodeInput.trim();
+    if (trimmed.length > 0 && trimmed.length !== 4) {
+      setTagError('Runner catch code must be exactly 4 digits.');
+      sound.playErrorBuzz();
+      return;
+    }
+
     onTagRunner(
       {
         runnerId: selectedRunner.id,
-        catchCodeInput
+        catchCodeInput: trimmed
       },
       (res) => {
         if (res.success) {
@@ -257,6 +282,7 @@ export default function HunterView({
             userLocation={userLocation}
             pins={pins}
             teammates={teammateLocations}
+            spottedRunners={spottedRunners}
             tripwires={tripwires}
             userRole="hunter"
             onMapClick={handleMapClick}
@@ -274,7 +300,8 @@ export default function HunterView({
             const isCaught = r.isCaught;
             const runnerDist = runnersWithDistance.find((item) => item.id === r.id);
             const distMeters = runnerDist?.distanceMeters;
-            const inRange = distMeters !== null && distMeters !== undefined && distMeters <= 25;
+            const isSpotted = spottedRunners.some((s) => s.runnerId === r.id);
+            const inRange = (distMeters !== null && distMeters !== undefined && distMeters <= 5) || isSpotted;
 
             return (
               <div
@@ -283,13 +310,13 @@ export default function HunterView({
                   isCaught
                     ? 'bg-slate-900/40 border-slate-800 opacity-60'
                     : inRange
-                    ? 'bg-emerald-950/40 border-emerald-500/60 shadow-md'
+                    ? 'bg-emerald-950/60 border-emerald-500 shadow-lg ring-1 ring-emerald-500/50'
                     : 'bg-slate-900 border-slate-800'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                    className={`w-3.5 h-3.5 rounded-full flex-shrink-0 ${
                       isCaught ? 'bg-slate-500' : inRange ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
                     }`}
                   />
@@ -297,17 +324,21 @@ export default function HunterView({
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-white">{r.name}</span>
                       {inRange && !isCaught && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          IN RANGE (&le;25m)
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse">
+                          ⚡ IN SIGHT (&le;5m)
                         </span>
                       )}
                     </div>
                     <div className="text-xs font-mono text-slate-400 mt-0.5">
                       {isCaught ? (
                         <span>Captured by {r.caughtBy || 'Hunter'}</span>
+                      ) : inRange ? (
+                        <span className="text-emerald-300 font-bold">
+                          Live Contact: ~{distMeters != null ? `${distMeters}m` : '<5m'}
+                        </span>
                       ) : distMeters != null ? (
-                        <span className={inRange ? 'text-emerald-300 font-bold' : 'text-slate-300'}>
-                          {formatDistance(distMeters)} {runnerDist?.bearing ? `• ${runnerDist.bearing.cardinal}` : ''}
+                        <span className="text-slate-300">
+                          Last Pin: {formatDistance(distMeters)} {runnerDist?.bearing ? `• ${runnerDist.bearing.cardinal}` : ''}
                         </span>
                       ) : (
                         <span>Awaiting radar telemetry</span>
@@ -317,17 +348,28 @@ export default function HunterView({
                 </div>
 
                 {!isCaught && (
-                  <button
-                    onClick={() => handleOpenTag(r)}
-                    className={`px-4 py-2.5 rounded-xl font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
-                      inRange
-                        ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-md'
-                        : 'bg-rose-600 hover:bg-rose-700 text-white'
-                    }`}
-                  >
-                    <Crosshair className="w-3.5 h-3.5" />
-                    <span>TAG {r.name.toUpperCase()}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {inRange && (
+                      <button
+                        onClick={() => handleProximityTagDirect(r)}
+                        className="px-3.5 py-2.5 rounded-xl font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md animate-pulse"
+                      >
+                        <Crosshair className="w-3.5 h-3.5" />
+                        <span>PROXIMITY TAG</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenTag(r)}
+                      className={`px-3.5 py-2.5 rounded-xl font-mono font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer ${
+                        inRange
+                          ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                          : 'bg-rose-600 hover:bg-rose-700 text-white shadow-md'
+                      }`}
+                    >
+                      <Crosshair className="w-3.5 h-3.5" />
+                      <span>{inRange ? 'ENTER CODE' : `TAG ${r.name.toUpperCase()}`}</span>
+                    </button>
+                  </div>
                 )}
               </div>
             );
@@ -406,36 +448,45 @@ export default function HunterView({
             {(() => {
               const runnerDist = runnersWithDistance.find((item) => item.id === selectedRunner.id);
               const distMeters = runnerDist?.distanceMeters;
-              const inRange = distMeters !== null && distMeters !== undefined && distMeters <= 25;
+              const isSpotted = spottedRunners.some((s) => s.runnerId === selectedRunner.id);
+              const inRange = (distMeters !== null && distMeters !== undefined && distMeters <= 5) || isSpotted;
+              const hasCode = catchCodeInput.trim().length > 0;
+              const isCodeComplete = catchCodeInput.trim().length === 4;
 
               return (
                 <>
                   <div className="mt-2 p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
-                    <span className="text-slate-400 font-mono">Current Distance:</span>
+                    <span className="text-slate-400 font-mono">Distance to Runner:</span>
                     <span className={`font-mono font-bold ${inRange ? 'text-emerald-400' : 'text-slate-200'}`}>
-                      {distMeters != null ? `${formatDistance(distMeters)}` : 'GPS Inactive'}
+                      {distMeters != null ? `${formatDistance(distMeters)}` : 'Radar Pin Only'}
                     </span>
                   </div>
 
                   {inRange ? (
                     <p className="text-xs text-emerald-400 mt-2 font-medium">
-                      ✓ You are within 25 meters! Tap below to register proximity tag.
+                      ✓ Runner is in live visual range (&le;5m)! You can tag immediately via proximity or enter their code.
                     </p>
                   ) : (
                     <p className="text-xs text-slate-400 mt-2">
-                      Outside 25m auto-range. If cornered in person, enter runner's 4-digit code:
+                      Outside 5m proximity range ({distMeters != null ? `${distMeters}m` : 'no live contact'}). Enter {selectedRunner.name}'s exact 4-digit code to tag:
                     </p>
                   )}
 
                   <div className="mt-3 flex flex-col gap-2">
                     <label className="text-[11px] font-mono uppercase text-slate-400 font-bold">
-                      Runner 4-Digit Code (Optional if in range)
+                      Runner 4-Digit Catch Code
                     </label>
                     <input
                       type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={4}
                       value={catchCodeInput}
-                      onChange={(e) => setCatchCodeInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setCatchCodeInput(val);
+                        setTagError('');
+                      }}
                       placeholder="0000"
                       className="w-full px-3 py-3 rounded-2xl border border-slate-700 bg-slate-950 font-mono text-2xl text-center font-bold tracking-widest text-emerald-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -451,10 +502,23 @@ export default function HunterView({
                   <div className="mt-5 flex flex-col gap-2">
                     <button
                       onClick={handleConfirmTag}
-                      className="w-full py-3.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                      disabled={hasCode ? !isCodeComplete : !inRange}
+                      className={`w-full py-3.5 rounded-xl font-bold text-xs shadow-md transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer ${
+                        (hasCode && isCodeComplete) || (!hasCode && inRange)
+                          ? 'bg-rose-600 hover:bg-rose-700 text-white'
+                          : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                      }`}
                     >
                       <Crosshair className="w-4 h-4" />
-                      <span>{catchCodeInput.length === 4 ? 'VERIFY CODE & TAG' : 'REGISTER PROXIMITY TAG'}</span>
+                      <span>
+                        {hasCode
+                          ? isCodeComplete
+                            ? 'VERIFY 4-DIGIT CODE & TAG'
+                            : `ENTER 4 DIGITS (${catchCodeInput.length}/4)`
+                          : inRange
+                          ? 'REGISTER PROXIMITY TAG (<5m)'
+                          : 'ENTER 4-DIGIT CODE TO TAG'}
+                      </span>
                     </button>
                     <button
                       onClick={() => setShowTagModal(false)}

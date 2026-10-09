@@ -7,17 +7,20 @@ export default function TacticalMap({
   userLocation,
   pins = [],
   teammates = [],
+  spottedRunners = [],
   tripwires = [],
   userRole = 'runner',
   onMapClick = null
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
+  const hasInitialCenteredRef = useRef(false);
   const markersRef = useRef({
     userMarker: null,
     accuracyCircle: null,
     pins: [],
     teammates: [],
+    spottedRunners: [],
     tripwires: []
   });
   const [autoFollow, setAutoFollow] = useState(true);
@@ -103,7 +106,10 @@ export default function TacticalMap({
 
     const { lat, lng, accuracy, heading } = userLocation;
 
-    if (autoFollow) {
+    if (!hasInitialCenteredRef.current && (lat !== 51.505 || lng !== -0.09)) {
+      map.setView([lat, lng], 17);
+      hasInitialCenteredRef.current = true;
+    } else if (autoFollow) {
       map.panTo([lat, lng], { animate: true, duration: 0.3 });
     }
 
@@ -148,7 +154,7 @@ export default function TacticalMap({
     }
   }, [userLocation, autoFollow, userRole]);
 
-  // Update Pins (Runner Dropped Pins)
+  // Update Pins (Runner Dropped Radar Pins - Displays Exact Runner Name)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -166,24 +172,30 @@ export default function TacticalMap({
       const minutesAgo = Math.max(0, Math.floor((now - pin.timestamp) / 60000));
       const uncertaintyRadiusMeters = Math.min(1500, Math.max(30, minutesAgo * 120));
 
-      let pinColor = '#EF4444'; // Red default
-      let label = '📍 PIN';
+      const runnerName = pin.runnerName || 'Runner';
+      let pinColor = '#EF4444'; // Red default for runners
+      let badgeIcon = '📍';
+      let badgeTitle = runnerName;
 
       if (pin.isDecoy) {
         pinColor = '#A855F7';
-        label = '👻 DECOY';
+        badgeIcon = '👻';
+        badgeTitle = `${runnerName} (Decoy)`;
       } else if (pin.isDroneSweep) {
         pinColor = '#06B6D4';
-        label = '🛰️ DRONE';
+        badgeIcon = '🛰️';
+        badgeTitle = `Drone: ${runnerName}`;
       }
+
+      const timeText = minutesAgo === 0 ? 'NOW' : `${minutesAgo}m ago`;
 
       const pinHtml = `
         <div class="relative flex flex-col items-center cursor-pointer">
           ${isLatest ? `<div class="absolute -top-1 w-10 h-10 rounded-full opacity-60 animate-ping" style="background-color: ${pinColor}"></div>` : ''}
-          <div class="px-2.5 py-1 rounded-full text-[11px] font-mono font-black text-white shadow-2xl border-2 border-white flex items-center gap-1.5"
+          <div class="px-2.5 py-1 rounded-full text-[11px] font-mono font-black text-white shadow-2xl border-2 border-white flex items-center gap-1.5 whitespace-nowrap"
                style="background-color: ${pinColor}">
-            <span>${label}</span>
-            <span>${minutesAgo}m ago</span>
+            <span>${badgeIcon} ${badgeTitle}</span>
+            <span class="opacity-80 text-[9px] bg-black/40 px-1.5 py-0.2 rounded-full font-bold">• ${timeText}</span>
           </div>
           <div class="w-3.5 h-3.5 rotate-45 -mt-2 border-r-2 border-b-2 border-white shadow-md" style="background-color: ${pinColor}"></div>
         </div>
@@ -192,16 +204,16 @@ export default function TacticalMap({
       const pinIcon = L.divIcon({
         html: pinHtml,
         className: 'tactical-pin-marker',
-        iconSize: [95, 45],
-        iconAnchor: [47, 40]
+        iconSize: [110, 48],
+        iconAnchor: [55, 42]
       });
 
       const marker = L.marker([pin.lat, pin.lng], { icon: pinIcon }).addTo(map);
       marker.bindPopup(`
         <div class="p-2 font-sans text-xs">
-          <div class="font-bold text-slate-900">${pin.runnerName || 'Runner'} Location Pin</div>
+          <div class="font-bold text-slate-900">${runnerName} Pin</div>
           <div class="text-slate-500 mt-0.5">${minutesAgo}m ago (${new Date(pin.timestamp).toLocaleTimeString()})</div>
-          <div class="text-slate-700 font-mono mt-1 font-bold">Est. Foot Search Radius: ~${uncertaintyRadiusMeters}m</div>
+          <div class="text-slate-700 font-mono mt-1 font-bold">Foot Search Radius: ~${uncertaintyRadiusMeters}m</div>
         </div>
       `);
 
@@ -221,7 +233,7 @@ export default function TacticalMap({
     });
   }, [pins, userRole]);
 
-  // Update Teammates
+  // Update Teammates (Fellow Runners for Runners, Fellow Hunters for Hunters)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -229,29 +241,82 @@ export default function TacticalMap({
     markersRef.current.teammates.forEach((m) => map.removeLayer(m));
     markersRef.current.teammates = [];
 
+    const isRunnerRole = userRole === 'runner';
+    const badgeBg = isRunnerRole ? 'bg-emerald-600' : 'bg-blue-600';
+    const dotColor = isRunnerRole ? 'bg-emerald-400' : 'bg-blue-500';
+    const roleIcon = isRunnerRole ? '🏃' : '🚔';
+
     teammates.forEach((teammate) => {
       if (!teammate.location) return;
 
       const teammateHtml = `
         <div class="flex flex-col items-center">
-          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-600 text-white shadow-lg border border-white">
-            ${teammate.name || 'Hunter'}
+          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold ${badgeBg} text-white shadow-lg border border-white whitespace-nowrap flex items-center gap-1">
+            <span>${roleIcon}</span>
+            <span>${teammate.name || (isRunnerRole ? 'Runner' : 'Hunter')}</span>
           </div>
-          <div class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md"></div>
+          <div class="w-3.5 h-3.5 rounded-full ${dotColor} border-2 border-white shadow-md"></div>
         </div>
       `;
 
       const icon = L.divIcon({
         html: teammateHtml,
         className: 'teammate-marker',
-        iconSize: [70, 32],
-        iconAnchor: [35, 26]
+        iconSize: [80, 32],
+        iconAnchor: [40, 26]
       });
 
       const m = L.marker([teammate.location.lat, teammate.location.lng], { icon }).addTo(map);
       markersRef.current.teammates.push(m);
     });
-  }, [teammates]);
+  }, [teammates, userRole]);
+
+  // Update Spotted Runners (Visible to Hunters ONLY when within 5 meters!)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    markersRef.current.spottedRunners.forEach((item) => {
+      if (item.marker) map.removeLayer(item.marker);
+      if (item.circle) map.removeLayer(item.circle);
+    });
+    markersRef.current.spottedRunners = [];
+
+    if (userRole !== 'hunter') return;
+
+    spottedRunners.forEach((spotted) => {
+      if (!spotted.location) return;
+
+      const spottedHtml = `
+        <div class="relative flex flex-col items-center cursor-pointer animate-bounce">
+          <div class="absolute -top-1 w-9 h-9 rounded-full bg-rose-500 opacity-70 animate-ping"></div>
+          <div class="px-2 py-0.5 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white shadow-2xl border-2 border-white flex items-center gap-1 whitespace-nowrap">
+            <span>⚡ SPOTTED: ${spotted.runnerName || 'Runner'}</span>
+            <span class="text-[9px] bg-black/40 px-1 rounded">(&le;5m)</span>
+          </div>
+          <div class="w-3.5 h-3.5 rounded-full bg-rose-500 border-2 border-white shadow-lg"></div>
+        </div>
+      `;
+
+      const icon = L.divIcon({
+        html: spottedHtml,
+        className: 'spotted-runner-marker',
+        iconSize: [110, 36],
+        iconAnchor: [55, 30]
+      });
+
+      const marker = L.marker([spotted.location.lat, spotted.location.lng], { icon }).addTo(map);
+      const circle = L.circle([spotted.location.lat, spotted.location.lng], {
+        radius: 5,
+        color: '#F43F5E',
+        weight: 3,
+        fillColor: '#F43F5E',
+        fillOpacity: 0.35
+      }).addTo(map);
+
+      markersRef.current.spottedRunners.push({ marker, circle });
+    });
+  }, [spottedRunners, userRole]);
 
   // Update Tripwires
   useEffect(() => {

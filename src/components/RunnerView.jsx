@@ -24,6 +24,7 @@ export default function RunnerView({
   room,
   player,
   userLocation,
+  teammateLocations = [],
   onUseDecoy,
   onUseJammer,
   onSurrender
@@ -230,7 +231,8 @@ export default function RunnerView({
         <div className="w-full h-[320px] sm:h-[380px] rounded-2xl overflow-hidden border border-slate-800 shadow-sm relative">
           <TacticalMap
             userLocation={userLocation}
-            pins={myPins}
+            pins={pinHistory}
+            teammates={teammateLocations}
             userRole="runner"
             onMapClick={handleMapClick}
           />

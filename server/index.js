@@ -380,7 +380,7 @@ io.on('connection', (socket) => {
     if (callback) callback({ success: true });
   });
 
-  // Player Location Update (rate-limited: max 1 per second per player)
+  // Player Location Update (responsive live streaming: max 1 per 600ms per player)
   socket.on('update_location', (location) => {
     const code = socket.data.roomCode;
     const room = rooms.get(code);
@@ -389,12 +389,11 @@ io.on('connection', (socket) => {
     const player = room.players[socket.id];
     if (!player) return;
 
-    // Server-side rate limit: ignore updates within 1s of last one
     const now = Date.now();
-    if (player._lastLocUpdate && now - player._lastLocUpdate < 1000) return;
+    if (player._lastLocUpdate && now - player._lastLocUpdate < 600) return;
     player._lastLocUpdate = now;
 
-    // Reject obviously invalid coordinates
+    // Reject invalid coordinates
     if (location == null || typeof location.lat !== 'number' || typeof location.lng !== 'number') return;
     if (location.lat < -90 || location.lat > 90 || location.lng < -180 || location.lng > 180) return;
 
@@ -403,18 +402,88 @@ io.on('connection', (socket) => {
       updatedAt: now
     };
 
-    // If hunter: broadcast to fellow hunters in real-time
+    const allPlayers = Object.values(room.players);
+
+    // 1. If Runner: broadcast live location to fellow runners!
+    if (player.role === 'runner') {
+      const fellowRunners = allPlayers.filter((p) => p.role === 'runner' && p.id !== socket.id);
+      fellowRunners.forEach((r) => {
+        io.to(r.id).emit('runner_location_updated', {
+          runnerId: socket.id,
+          runnerName: player.name,
+          location: player.currentLocation,
+          isCaught: player.isCaught
+        });
+      });
+
+      // Check distance to all hunters: if within 5m, hunter spots this runner live!
+      if (!player.isCaught) {
+        const hunters = allPlayers.filter((p) => p.role === 'hunter');
+        hunters.forEach((h) => {
+          if (h.currentLocation) {
+            const dist = calculateDistanceMeters(
+              player.currentLocation.lat,
+              player.currentLocation.lng,
+              h.currentLocation.lat,
+              h.currentLocation.lng
+            );
+            if (dist <= 5) {
+              io.to(h.id).emit('runner_spotted_live', {
+                runnerId: socket.id,
+                runnerName: player.name,
+                location: player.currentLocation,
+                distance: dist
+              });
+            } else {
+              io.to(h.id).emit('runner_lost_sight', {
+                runnerId: socket.id
+              });
+            }
+          }
+        });
+      }
+    }
+
+    // 2. If Hunter: broadcast live location to fellow hunters
     if (player.role === 'hunter') {
-      socket.to(code).emit('hunter_location_updated', {
-        hunterId: socket.id,
-        hunterName: player.name,
-        location: player.currentLocation
+      const fellowHunters = allPlayers.filter((p) => p.role === 'hunter' && p.id !== socket.id);
+      fellowHunters.forEach((h) => {
+        io.to(h.id).emit('hunter_location_updated', {
+          hunterId: socket.id,
+          hunterName: player.name,
+          location: player.currentLocation
+        });
+      });
+
+      // Check distance from this hunter to all active runners: reveal runners within 5m!
+      const activeRunners = allPlayers.filter((p) => p.role === 'runner' && !p.isCaught);
+      activeRunners.forEach((r) => {
+        if (r.currentLocation) {
+          const dist = calculateDistanceMeters(
+            player.currentLocation.lat,
+            player.currentLocation.lng,
+            r.currentLocation.lat,
+            r.currentLocation.lng
+          );
+          if (dist <= 5) {
+            socket.emit('runner_spotted_live', {
+              runnerId: r.id,
+              runnerName: r.name,
+              location: r.currentLocation,
+              distance: dist
+            });
+          } else {
+            socket.emit('runner_lost_sight', {
+              runnerId: r.id
+            });
+          }
+        }
       });
     }
 
     // Check game loop if playing
     if (room.status === 'playing') {
-      // Check tripwires if player is a runner
+      // Check tripwires if player is an active runner
       if (player.role === 'runner' && !player.isCaught && room.gameState.tripwires?.length > 0) {
         room.gameState.tripwires.forEach((tw) => {
           if (!tw.triggered) {
@@ -663,31 +732,50 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const codeMatch = catchCodeInput && catchCodeInput.trim() === runner.catchCode;
-    let proximityMatch = false;
+    const trimmedInput = (catchCodeInput || '').toString().trim();
+    const hasCodeInput = trimmedInput.length > 0;
+
     let distMeters = null;
+    let inProximity = false;
+    const proximityThreshold = room.settings.proximityTagMeters || 5; // User requirement: live proximity tag <= 5 meters
 
     if (hunter.currentLocation && runner.currentLocation) {
-      distMeters = calculateDistanceMeters(
-        hunter.currentLocation.lat,
-        hunter.currentLocation.lng,
-        runner.currentLocation.lat,
-        runner.currentLocation.lng
-      );
-      if (distMeters <= (room.settings.proximityTagMeters || 25)) {
-        proximityMatch = true;
+      const hunterFresh = Date.now() - (hunter.currentLocation.updatedAt || 0) < 30000;
+      const runnerFresh = Date.now() - (runner.currentLocation.updatedAt || 0) < 30000;
+      if (hunterFresh && runnerFresh) {
+        distMeters = calculateDistanceMeters(
+          hunter.currentLocation.lat,
+          hunter.currentLocation.lng,
+          runner.currentLocation.lat,
+          runner.currentLocation.lng
+        );
+        if (distMeters <= proximityThreshold) {
+          inProximity = true;
+        }
       }
     }
 
-    if (!codeMatch && !proximityMatch) {
-      const msg = distMeters !== null
-        ? `Too far for proximity tag (${distMeters}m away). Must be within 25m or type runner's 4-digit catch code.`
-        : "Must be within 25m with active GPS or enter runner's 4-digit catch code.";
-      if (callback) callback({
-        success: false,
-        message: msg
-      });
-      return;
+    // Rule 1: If a code was provided, IT MUST MATCH EXACTLY! Never allow random codes like '4'!
+    if (hasCodeInput) {
+      if (trimmedInput !== runner.catchCode) {
+        if (callback) callback({
+          success: false,
+          message: `Incorrect catch code! "${trimmedInput}" is invalid for ${runner.name}. Check runner's 4-digit code.`
+        });
+        return;
+      }
+    } else {
+      // Rule 2: If no code entered, hunter MUST be within 5m live proximity!
+      if (!inProximity) {
+        const msg = distMeters !== null
+          ? `Too far for proximity tag (${distMeters}m away). Must be within 5m, or enter ${runner.name}'s 4-digit code.`
+          : `Proximity tag requires active live GPS (<5m) or runner's 4-digit catch code.`;
+        if (callback) callback({
+          success: false,
+          message: msg
+        });
+        return;
+      }
     }
 
     runner.isCaught = true;

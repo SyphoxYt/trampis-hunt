@@ -35,6 +35,8 @@ export default function App() {
   const [playerId, setPlayerId] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const [teammateLocations, setTeammateLocations] = useState([]);
+  const [spottedRunners, setSpottedRunners] = useState([]);
+  const [invitedRoomCode, setInvitedRoomCode] = useState(null);
   const [isConnected, setIsConnected] = useState(socket.connected);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showRules, setShowRules] = useState(false);
@@ -169,6 +171,24 @@ export default function App() {
       });
     };
 
+    const onRunnerLocationUpdated = ({ runnerId, runnerName, location }) => {
+      setTeammateLocations((prev) => {
+        const filtered = prev.filter((t) => t.id !== runnerId);
+        return [...filtered, { id: runnerId, name: runnerName, location }];
+      });
+    };
+
+    const onRunnerSpottedLive = ({ runnerId, runnerName, location, distance }) => {
+      setSpottedRunners((prev) => {
+        const filtered = prev.filter((r) => r.runnerId !== runnerId);
+        return [...filtered, { runnerId, runnerName, location, distance }];
+      });
+    };
+
+    const onRunnerLostSight = ({ runnerId }) => {
+      setSpottedRunners((prev) => prev.filter((r) => r.runnerId !== runnerId));
+    };
+
     const onGameError = ({ message }) => {
       sound.playErrorBuzz();
       setErrorMessage(message);
@@ -196,6 +216,9 @@ export default function App() {
     socket.on('runner_tagged', onRunnerTagged);
     socket.on('game_ended', onGameEnded);
     socket.on('hunter_location_updated', onHunterLocationUpdated);
+    socket.on('runner_location_updated', onRunnerLocationUpdated);
+    socket.on('runner_spotted_live', onRunnerSpottedLive);
+    socket.on('runner_lost_sight', onRunnerLostSight);
     socket.on('game_error', onGameError);
 
     fetch('/api/ip')
@@ -203,41 +226,14 @@ export default function App() {
       .then((data) => setServerIp(data.ip))
       .catch(() => {});
 
+    // QR Code invite link handler: prefill room code, prompt for name, DO NOT auto-join!
     const urlParams = new URLSearchParams(window.location.search);
     const joinCode = urlParams.get('join');
     if (joinCode) {
       const code = joinCode.trim().toUpperCase();
       setRoomCodeInput(code);
-      // Clean URL so refresh doesn't re-join
+      setInvitedRoomCode(code);
       try { window.history.replaceState({}, '', window.location.pathname); } catch(e) {}
-      // Auto-join once socket connects
-      const tryAutoJoin = () => {
-        if (socket.connected) {
-          sound.init();
-          const name = localStorage.getItem('trampis_player_name') || `Operative_${Math.floor(100 + Math.random() * 900)}`;
-          socket.emit('join_room', { roomCode: code, playerName: name }, (res) => {
-            if (res?.success) {
-              setRoom(res.room);
-              setPlayerId(res.playerId);
-              localStorage.setItem('trampis_active_room', res.room.code);
-            }
-          });
-        } else {
-          // Wait for connection then join
-          socket.once('connect', () => {
-            const name = localStorage.getItem('trampis_player_name') || `Operative_${Math.floor(100 + Math.random() * 900)}`;
-            socket.emit('join_room', { roomCode: code, playerName: name }, (res) => {
-              if (res?.success) {
-                setRoom(res.room);
-                setPlayerId(res.playerId);
-                localStorage.setItem('trampis_active_room', res.room.code);
-              }
-            });
-          });
-        }
-      };
-      // Small delay to let component mount
-      setTimeout(tryAutoJoin, 500);
     }
 
     return () => {
@@ -251,15 +247,18 @@ export default function App() {
       socket.off('runner_tagged', onRunnerTagged);
       socket.off('game_ended', onGameEnded);
       socket.off('hunter_location_updated', onHunterLocationUpdated);
+      socket.off('runner_location_updated', onRunnerLocationUpdated);
+      socket.off('runner_spotted_live', onRunnerSpottedLive);
+      socket.off('runner_lost_sight', onRunnerLostSight);
       socket.off('game_error', onGameError);
       socket.off('quick_comm_received', onQuickCommReceived);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- all handlers use functional state, no stale closures
 
-  // GPS Tracking Loop — start once, throttle server updates
+  // GPS Tracking Loop — start once, responsive live tracking (1s throttle)
   useEffect(() => {
     let lastEmitTime = 0;
-    const THROTTLE_MS = 2000; // Don't flood server — max 1 update per 2s
+    const THROTTLE_MS = 1000; // 1 second updates for crisp live pursuit
 
     locationTracker.start(
       (loc) => {
@@ -301,6 +300,11 @@ export default function App() {
     const code = roomCodeInput.trim().toUpperCase();
     if (!code) {
       setErrorMessage('Please enter a 5-character room code.');
+      return;
+    }
+    const cleanName = (playerName || '').trim();
+    if (!cleanName) {
+      setErrorMessage('Please enter a codename before joining.');
       return;
     }
     if (!socket.connected) {
@@ -524,6 +528,21 @@ export default function App() {
                 </p>
               </div>
 
+              {/* Invited Room Code Alert Callout */}
+              {invitedRoomCode && (
+                <div className="p-3.5 bg-emerald-950/70 border border-emerald-500/60 rounded-2xl flex flex-col gap-1 text-center animate-fadeIn shadow-md">
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-widest">
+                    🎯 INVITED TO HUNT ROOM
+                  </span>
+                  <div className="text-xl font-mono font-black text-white tracking-widest">
+                    {invitedRoomCode}
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Pick your codename below, then tap <strong>JOIN ROOM</strong> to start!
+                  </p>
+                </div>
+              )}
+
               {/* Codename Input */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-mono uppercase font-bold text-slate-400 tracking-wider">
@@ -565,10 +584,10 @@ export default function App() {
                 />
                 <button
                   onClick={handleJoinRoom}
-                  disabled={!roomCodeInput.trim()}
-                  className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                  disabled={!roomCodeInput.trim() || !playerName.trim()}
+                  className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-md"
                 >
-                  <span>Join</span>
+                  <span>{invitedRoomCode ? `Join ${invitedRoomCode}` : 'Join'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -622,6 +641,7 @@ export default function App() {
               room={room}
               player={currentUser}
               userLocation={userLocation}
+              teammateLocations={teammateLocations}
               onUseDecoy={handleUseDecoy}
               onUseJammer={handleUseJammer}
               onSurrender={handleSurrender}
@@ -632,6 +652,7 @@ export default function App() {
               player={currentUser}
               userLocation={userLocation}
               teammateLocations={teammateLocations}
+              spottedRunners={spottedRunners}
               onTagRunner={handleTagRunner}
               onUseDroneScan={handleUseDroneScan}
               onDeployTripwire={handleDeployTripwire}
